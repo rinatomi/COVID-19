@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<!-- templates/navbar.html -->
+<div class="nav-bar">
+    <button class="nav-btn {% if request.path == '/' %}active{% endif %}"
+            onclick="location.href='{{ url_for('index') }}'">首页
+    </button>
+    <button class="nav-btn {% if request.path == '/dashboard' %}active{% endif %}"
+            onclick="location.href='{{ url_for('dashboard') }}'">所有国家
+    </button>
+    <button class="nav-btn {% if request.path == '/china' %}active{% endif %}"
+            onclick="location.href='{{ url_for('china') }}'">中国
+    </button>
+    <button class="nav-btn {% if request.path == '/predict' %}active{% endif %}"
+            onclick="location.href='{{ url_for('predict_page') }}'">疫情预测
+    </button>
+</div>
+
+</body>
+</html>
