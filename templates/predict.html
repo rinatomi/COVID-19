@@ -2,7 +2,7 @@
 <html lang="zh">
 <head>
   <meta charset="UTF-8">
-  <title>疫情预测 - 全球新冠疫情数据分析统计系统</title>
+  <title>病例增长趋势 - 新冠疫情数据分析系统</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
@@ -45,89 +45,147 @@
       margin-left: auto;
       margin-right: auto;
     }
-
-    label {
-      font-weight: bold;
-      margin-right: 6px;
-    }
-
-    input, button {
-      margin-right: 10px;
-      padding: 6px 10px;
-      font-size: 14px;
-    }
   </style>
 </head>
+
 <body>
 
-  <h2 style="text-align:center;">全球新冠疫情数据分析统计系统</h2>
+<h2 style="text-align:center;">新冠疫情数据分析系统</h2>
 
-  <!-- 🔍 顶部导航栏 -->
-  <div class="nav-bar">
-    <button class="nav-btn" onclick="location.href='/'">首页</button>
-    <button class="nav-btn" onclick="location.href='/'">所有国家</button>
-    <button class="nav-btn" onclick="location.href='/china'">中国</button>
-    <button class="nav-btn active">疫情预测</button>
-  </div>
+<!-- 🔍 顶部导航栏 -->
+<div class="nav-bar">
+  <button class="nav-btn" onclick="location.href='/'">首页</button>
+  <button class="nav-btn" onclick="location.href='/'">所有国家</button>
+  <button class="nav-btn" onclick="location.href='/china'">中国</button>
+  <button class="nav-btn active">疫情预测</button>
+</div>
 
-  <!-- 🔮 疫情预测输入模块 -->
-  <div class="card">
-    <h4>疫情趋势预测</h4>
-    <div style="margin-bottom: 10px;">
-      <label for="predict_country">国家代码：</label>
-      <input type="text" id="predict_country" placeholder="如 CN 或 US" value="CN">
+<!-- 🟦 国家选择 -->
+<div class="card">
+  <h4>请选择国家查看病例增长趋势</h4>
+  <select id="trend_selector" onchange="onTrendChange()">
+    <option value="GLOBAL">全球</option>
+    <option value="CN">中国</option>
+  </select>
+</div>
 
-      <label for="predict_days">预测天数：</label>
-      <input type="number" id="predict_days" min="1" max="30" value="7">
+<!-- 📈 增长趋势图 -->
+<div class="card">
+  <h4 id="trend_title">病例增长趋势</h4>
+  <canvas id="trendChart" height="100"></canvas>
+</div>
 
-      <button onclick="loadPrediction()">开始预测</button>
-    </div>
-    <p id="predict_date_range">预测范围：--</p>
-  </div>
+<!-- 🌡 Rt趋势 -->
+<div class="card">
+  <h4>有效传播数 Rt</h4>
+  <canvas id="rtChart" height="100"></canvas>
+</div>
 
-  <!-- 📈 折线图 -->
-  <div class="card">
-    <canvas id="predictionChart" height="100"></canvas>
-  </div>
+<!-- ⚰ 病死率 -->
+<div class="card">
+  <h4>疫情严重程度 - 病死率</h4>
+  <canvas id="cfrChart" height="100"></canvas>
+</div>
 
-  <script>
-    let predictionChart = null;
+<script>
+  let trendChart = null;
+  let rtChart = null;
+  let cfrChart = null;
 
-    function loadPrediction() {
-      const code = document.getElementById('predict_country').value.trim().toUpperCase();
-      const days = document.getElementById('predict_days').value;
+  function loadGrowthTrend(code) {
+    const url = code === 'CN'
+      ? '/api/china/growth-trend'
+      : '/api/global/growth-trend';
 
-      if (!code) {
-        alert("请输入国家代码！");
-        return;
-      }
+    fetch(url)
+      .then(res => res.json())
+      .then(data => {
+        const labels = data.dates;
+        const rates = data.rates.map(r => (r * 100).toFixed(2));
 
-      fetch(`/api/predict?code=${code}&days=${days}`)
-        .then(res => res.json())
-        .then(data => {
-          document.getElementById('predict_date_range').innerText = `预测范围：${data.dates[0]} - ${data.dates[data.dates.length - 1]}`;
-
-          if (predictionChart) predictionChart.destroy();
-          predictionChart = new Chart(document.getElementById('predictionChart'), {
-            type: 'line',
-            data: {
-              labels: data.dates,
-              datasets: [{
-                label: '预测累计确诊',
-                data: data.predicted_cases,
-                borderColor: 'orange',
-                fill: false,
-                tension: 0.3
-              }]
-            }
-          });
-        })
-        .catch(err => {
-          console.error('预测加载失败', err);
-          alert("预测数据加载失败，请检查接口或服务器");
+        if (trendChart) trendChart.destroy();
+        trendChart = new Chart(document.getElementById('trendChart'), {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: `${code === 'CN' ? '中国' : '全球'}增长率 (%)`,
+              data: rates,
+              borderColor: code === 'CN' ? '#2980b9' : '#e67e22',
+              backgroundColor: code === 'CN' ? 'rgba(41,128,185,0.2)' : 'rgba(230,126,34,0.2)',
+              fill: true,
+              tension: 0.3
+            }]
+          }
         });
-    }
-  </script>
+
+        document.getElementById('trend_title').innerText =
+          code === 'CN' ? '中国病例增长趋势' : '全球病例增长趋势';
+      });
+  }
+
+  function loadRtChart(code = 'GLOBAL') {
+    const url = code === 'CN' ? '/api/china/rt' : '/api/global/rt';
+
+    fetch(url)
+      .then(res => res.json())
+      .then(data => {
+        const labels = data.dates;
+        const rtValues = data.rt_values;
+
+        if (rtChart) rtChart.destroy();
+        rtChart = new Chart(document.getElementById('rtChart'), {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Rt 有效传播数',
+              data: rtValues,
+              borderColor: '#2ecc71',
+              backgroundColor: 'rgba(46,204,113,0.2)',
+              fill: true,
+              tension: 0.3
+            }]
+          }
+        });
+      });
+  }
+
+  function loadCfrChart(code = 'GLOBAL') {
+    const url = code === 'CN' ? '/api/china/cfr' : '/api/global/cfr';
+
+    fetch(url)
+      .then(res => res.json())
+      .then(data => {
+        if (cfrChart) cfrChart.destroy();
+        cfrChart = new Chart(document.getElementById('cfrChart'), {
+          type: 'bar',
+          data: {
+            labels: data.dates,
+            datasets: [{
+              label: '病死率 (%)',
+              data: data.cfr_values,
+              backgroundColor: 'rgba(231, 76, 60, 0.5)'
+            }]
+          }
+        });
+      });
+  }
+
+  function onTrendChange() {
+    const selected = document.getElementById('trend_selector').value;
+    loadGrowthTrend(selected);
+    loadRtChart(selected);
+    loadCfrChart(selected);
+  }
+
+  window.onload = () => {
+    const defaultCountry = 'GLOBAL';
+    loadGrowthTrend(defaultCountry);
+    loadRtChart(defaultCountry);
+    loadCfrChart(defaultCountry);
+  };
+</script>
 
 </body>
 </html>
