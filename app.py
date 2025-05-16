@@ -9,13 +9,26 @@ db.init_app(app)
 
 app.register_blueprint(api_bp, url_prefix='/api')
 
+
 @app.route('/')
 def index():
+    return render_template('index.html')
+
+
+@app.route('/dashboard')
+def dashboard():
     return render_template('dashboard.html')
+
+
+@app.route('/china')
+def china():
+    return render_template('china.html')
+
 
 @app.route('/predict')
 def predict_page():
     return render_template('predict.html')
+
 
 if __name__ == '__main__':
     app.run(debug=True)

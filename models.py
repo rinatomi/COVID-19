@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
@@ -45,3 +47,20 @@ class DailyCountryHistory(db.Model):
     cases = db.Column(db.BigInteger)
     deaths = db.Column(db.BigInteger)
     recovered = db.Column(db.BigInteger)
+
+class RealtimeGlobalStats(db.Model):
+    __tablename__ = 'realtime_global_stats'
+
+    collected_at = db.Column(db.DateTime, primary_key=True)  # ✅ 作为主键
+    updated = db.Column(db.BigInteger)
+    cases = db.Column(db.BigInteger)
+    today_cases = db.Column(db.BigInteger)
+    deaths = db.Column(db.BigInteger)
+    today_deaths = db.Column(db.BigInteger)
+    recovered = db.Column(db.BigInteger)
+    today_recovered = db.Column(db.BigInteger)
+    active = db.Column(db.BigInteger)
+    critical = db.Column(db.BigInteger)
+    tests = db.Column(db.BigInteger)
+    population = db.Column(db.BigInteger)
+    affected_countries = db.Column(db.Integer)
