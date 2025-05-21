@@ -1,0 +1,1398 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>全球新冠疫情数据分析统计系统 - 国家详情</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/leaflet.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/country.css">
+    <style>
+        /* 确保图表容器可见 */
+        .chart-container {
+            position: relative;
+            height: 250px;
+            min-height: 250px;
+            width: 100%;
+            display: block !important;
+            visibility: visible !important;
+        }
+        
+        canvas {
+            display: block !important;
+            visibility: visible !important;
+        }
+        
+        /* 预加载容器样式 */
+        .preload-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: white;
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        
+        .loader {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #4285F4; 
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .chart-controls {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 15px;
+        }
+        
+        .chart-wrapper {
+            height: 300px;
+            position: relative;
+        }
+        
+        .btn-group .btn {
+            border-radius: 0;
+            font-size: 14px;
+            padding: 5px 15px;
+        }
+        
+        .btn-group .btn:first-child {
+            border-top-left-radius: 4px;
+            border-bottom-left-radius: 4px;
+        }
+        
+        .btn-group .btn:last-child {
+            border-top-right-radius: 4px;
+            border-bottom-right-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <!-- 预加载遮罩 -->
+    <div id="preloader" class="preload-overlay">
+        <div class="loader"></div>
+        <div>正在加载数据，请稍候...</div>
+    </div>
+
+    <div class="container-fluid px-0">
+        <header class="header py-3">
+            <div class="container">
+                <h1 class="text-center mb-0">全球新冠疫情数据分析统计系统</h1>
+            </div>
+        </header>
+
+        <!-- 导航菜单 -->
+        <div class="container-fluid px-4">
+            <div class="row">
+                <div class="col-12">
+                    <nav class="main-nav">
+                        <ul class="nav-list">
+                            <li class="nav-item">
+                                <a href="index.html" class="nav-link">首页</a>
+                            </li>
+                            <li class="nav-item active">
+                                <a href="countries.html" class="nav-link">所有国家</a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="china.html" class="nav-link">中国</a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="prediction.html" class="nav-link">疫情预测</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="monitor.html">数据流监控</a>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+
+        <!-- 国家搜索区域 -->
+        <div class="container-fluid px-4 mt-4">
+            <div class="row">
+                <div class="col-12">
+                    <div class="country-search-container">
+                        <h5 class="mb-3"><i class="fas fa-search me-2"></i>国家查询</h5>
+                        <div class="row">
+                            <div class="col-md-8">
+                                <input type="text" id="country_input" class="search-input" placeholder="请输入国家代码 (如 CN, US) 或国家名称">
+                            </div>
+                            <div class="col-md-4">
+                                <button onclick="onSearch()" class="search-button">
+                                    <i class="fas fa-search me-2"></i>查询
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 国家概览信息 -->
+        <div class="container-fluid px-4" id="main-content" style="display: none;">
+            <div class="row">
+                <!-- 左侧国家信息 -->
+                <div class="col-md-3 mb-4">
+                    <div class="dashboard-card country-info country-card">
+                        <h5>国家基本信息</h5>
+                        <div id="country-info-container">
+                            <div class="text-center">
+                                <img id="country_flag" src="https://disease.sh/assets/img/flags/cn.png" alt="国旗" class="country-flag">
+                            </div>
+                            <div class="country-info-item">
+                                <i class="fas fa-globe"></i>
+                                <span>国家：<span id="country_name">加载中...</span></span>
+                            </div>
+                            <div class="country-info-item">
+                                <i class="fas fa-map-marker-alt"></i>
+                                <span>经纬度：<span id="country_latlng">加载中...</span></span>
+                            </div>
+                            <div class="country-info-item">
+                                <i class="fas fa-landmark"></i>
+                                <span>所属洲：<span id="country_continent">加载中...</span></span>
+                            </div>
+                            <div class="country-info-item">
+                                <i class="fas fa-users"></i>
+                                <span>人口：<span id="country_population">加载中...</span></span>
+                            </div>
+                            <div class="country-info-item">
+                                <i class="fas fa-clock"></i>
+                                <span>数据更新时间：<span id="updated_at">加载中...</span></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 右侧主要内容区域 -->
+                <div class="col-md-9 mb-4">
+                    <!-- 统计卡片 -->
+                    <div class="stats-overview">
+                        <div class="stat-card confirmed">
+                            <div class="icon">
+                                            <i class="fas fa-user-check"></i>
+                                        </div>
+                            <div class="label">累计确诊</div>
+                            <div class="value" id="total_cases">--</div>
+                                        </div>
+                        <div class="stat-card active">
+                            <div class="icon">
+                                            <i class="fas fa-procedures"></i>
+                                        </div>
+                            <div class="label">现存确诊</div>
+                            <div class="value" id="active_cases">--</div>
+                                        </div>
+                        <div class="stat-card deaths">
+                            <div class="icon">
+                                            <i class="fas fa-heartbeat"></i>
+                                        </div>
+                            <div class="label">累计死亡</div>
+                            <div class="value" id="total_deaths">--</div>
+                                        </div>
+                        <div class="stat-card recovered">
+                            <div class="icon">
+                                            <i class="fas fa-heart"></i>
+                                        </div>
+                            <div class="label">累计治愈</div>
+                            <div class="value" id="total_recovered">--</div>
+                                </div>
+                            </div>
+                            
+                    <!-- 图表区域 -->
+                    <div class="chart-section">
+                        <div class="chart-card">
+                            <h5>历史趋势</h5>
+                            <div class="date-range-picker mb-3">
+                                <input type="date" id="start_date" class="date-input">
+                                <input type="date" id="end_date" class="date-input">
+                                <button onclick="loadTrendChart(currentCountryCode)" class="search-button">
+                                    <i class="fas fa-filter me-1"></i>筛选
+                                </button>
+                        </div>
+                        <p id="trend_date_range" class="text-muted mb-3">加载中...</p>
+                            <div id="trend-container" class="chart-wrapper">
+                            <canvas id="trendChart"></canvas>
+                        </div>
+                    </div>
+                        <div class="chart-card">
+                            <h5>当前病例占比</h5>
+                            <div class="chart-wrapper">
+                                <canvas id="currentCasePie"></canvas>
+                        </div>
+                    </div>
+                </div>
+                
+                    <!-- 指标网格 -->
+                    <div class="chart-card">
+                        <h5>详细指标</h5>
+                        <div class="metrics-charts">
+                            <div class="chart-wrapper">
+                                <canvas id="perMillionChart1"></canvas>
+                        </div>
+                            <div class="chart-wrapper">
+                                <canvas id="perMillionChart2"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+                    <!-- 疫苗接种趋势 -->
+                    <div class="chart-card mt-4">
+                        <h5>疫苗接种累计趋势</h5>
+                        <div class="date-range-picker mb-3">
+                            <input type="date" id="vaccine_start_date" class="date-input">
+                            <input type="date" id="vaccine_end_date" class="date-input">
+                            <button onclick="loadVaccineTrendChart(currentCountryCode, true)" class="search-button">
+                                <i class="fas fa-filter me-1"></i>筛选
+                            </button>
+                        </div>
+                        <p id="vaccine_date_range" class="text-muted mb-3">加载中...</p>
+                        <div id="vaccine-container" class="chart-wrapper">
+                            <canvas id="vaccineTrendChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-light py-3 mt-4">
+        <div class="container text-center">
+            <p>全球新冠疫情数据分析统计系统 © 2025</p>
+            <p class="text-muted">
+                数据更新时间: <span id="update-time">加载中...</span>
+                <span class="next-update">下次更新: <span id="update-countdown">5:00</span></span>
+            </p>
+        </div>
+    </footer>
+
+    <!-- 主题切换按钮 -->
+    <div class="theme-toggle">
+        <button id="theme-switch">
+            <i class="fas fa-moon"></i>
+            <i class="fas fa-sun"></i>
+        </button>
+    </div>
+
+    <!-- 先加载核心库 -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"></script>
+    
+    <!-- 添加简单的初始化脚本 -->
+    <script>
+    // 全局错误处理
+    window.onerror = function(message, source, lineno, colno, error) {
+        console.error('全局错误捕获:', message, 'at', source, lineno, colno);
+        return false;
+    };
+    
+    // 确保Chart.js已正确加载
+    console.log('Chart.js 版本:', typeof Chart !== 'undefined' ? Chart.version : '未加载');
+    
+    // 检查Chart.js是否加载
+    function checkChartJsLoaded() {
+        return typeof Chart !== 'undefined';
+    }
+    
+    // 如果Chart.js未加载，尝试重新加载
+    function ensureChartJsLoaded() {
+        if (!checkChartJsLoaded()) {
+            console.error('Chart.js未找到，尝试重新加载...');
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js';
+                script.onload = () => {
+                    console.log('Chart.js重新加载成功:', typeof Chart !== 'undefined' ? Chart.version : '未知');
+                    resolve(true);
+                };
+                script.onerror = () => {
+                    console.error('Chart.js加载失败');
+                    reject(new Error('Chart.js加载失败'));
+                };
+                document.body.appendChild(script);
+            });
+        }
+        return Promise.resolve(true);
+    }
+    
+    // 全局变量，保存Chart实例
+    let pieChart, personChart, millionChart, trendChart, vaccineChart;
+    let countryData = null;
+    let countryCode = 'CN';
+    let currentCountryCode = 'CN';  // 添加当前国家代码变量
+    
+    // API基础URL
+    const API_BASE_URL = 'http://49.232.28.106:5000/api';
+    
+    // 获取国家数据并更新页面
+    async function fetchCountryData(code) {
+        const preloader = document.getElementById('preloader');
+        try {
+            console.log('开始获取国家数据，国家代码:', code);
+            
+            // 显示加载动画
+            if (preloader) {
+                preloader.style.display = 'flex';
+            }
+            
+            const response = await fetch(`${API_BASE_URL}/countries/${code}`);
+            if (!response.ok) {
+                throw new Error(`HTTP错误: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            console.log('成功获取国家数据:', data);
+            
+            if (!data) {
+                throw new Error('返回的数据为空');
+            }
+
+            // 更新页面数据
+            updatePageData(data);
+            
+            // 渲染图表
+            await renderCharts(data);
+            
+            // 显示主要内容
+            const mainContent = document.getElementById('main-content');
+            if (mainContent) {
+                mainContent.style.display = 'block';
+            }
+            
+            return data;
+        } catch (error) {
+            console.error('获取国家数据失败:', error);
+            alert(`获取国家数据失败: ${error.message}`);
+            return null;
+        } finally {
+            // 无论成功还是失败，都隐藏加载动画
+            if (preloader) {
+                preloader.style.display = 'none';
+            }
+        }
+    }
+
+    // 更新页面数据的函数
+    function updatePageData(data) {
+        // 基础信息更新
+        const updateElement = (id, value) => {
+            const element = document.getElementById(id);
+            if (element) {
+                if (element.tagName.toLowerCase() === 'img') {
+                    element.src = value;
+                } else {
+                    element.innerText = value;
+                }
+            }
+        };
+            
+            // 更新基本信息
+        updateElement('country_name', data.country_name || '未知');
+        updateElement('country_latlng', `${data.lat || '未知'}, ${data.long || '未知'}`);
+        updateElement('country_continent', data.continent || '未知');
+        updateElement('country_population', formatNumber(data.population) || '未知');
+        updateElement('country_flag', data.flag_url || 'https://disease.sh/assets/img/flags/unknown.png');
+        updateElement('updated_at', formatDate(data.collected_at));
+            
+            // 更新统计数据
+        updateElement('total_cases', formatNumber(data.cases));
+        updateElement('active_cases', formatNumber(data.active));
+        updateElement('total_deaths', formatNumber(data.deaths));
+        updateElement('total_recovered', formatNumber(data.recovered));
+
+        // 更新页面标题
+        document.title = `${data.country_name || '未知国家'} - 全球新冠疫情数据分析统计系统`;
+    }
+
+    // 渲染所有图表的函数
+    async function renderCharts(data) {
+        if (!data) return;
+
+        try {
+            // 渲染饼图
+            const pieData = {
+                labels: ['活跃病例', '康复', '死亡'],
+                datasets: [{
+                    data: [data.active || 0, data.recovered || 0, data.deaths || 0],
+                    backgroundColor: ['#FBBC05', '#34A853', '#EA4335']
+                }]
+            };
+
+            createOrUpdateChart('pie', 'currentCasePie', pieData, {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            });
+
+            // 计算每X发生1例所需人口
+            const pop = data.population || 0;
+            const perCasePopulation = pop && data.cases ? Math.round(pop / data.cases) : 0;
+            const perDeathPopulation = pop && data.deaths ? Math.round(pop / data.deaths) : 0;
+            const perTestPopulation = pop && data.tests ? Math.round(pop / data.tests) : 0;
+            
+            // 渲染基础指标柱状图（每X发生1例所需人口）
+            const barData1 = {
+                labels: ['每感染1人所需人口', '每死亡1人所需人口', '每检测1人所需人口'],
+                datasets: [{
+                    label: '人口比例指标',
+                    data: [
+                        perCasePopulation,
+                        perDeathPopulation,
+                        perTestPopulation
+                    ],
+                    backgroundColor: ['#4285F4', '#EA4335', '#34A853']
+                }]
+            };
+
+            createOrUpdateChart('bar', 'perMillionChart1', barData1, {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    title: {
+                        display: true,
+                        text: '单位感染、死亡与检测所对应人口数'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const value = context.parsed.x;
+                                return `${context.label}: ${formatNumber(value)} 人`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            callback: function(value) {
+                                if (value >= 1000000) {
+                                    return (value / 1000000).toFixed(1) + 'M';
+                                } else if (value >= 1000) {
+                                    return (value / 1000).toFixed(1) + 'K';
+                                }
+                                return value;
+                            }
+                        }
+                    }
+                }
+            });
+
+            // 计算每百万人口的指标
+            const perMillion = n => pop && n ? (n / pop * 1000000).toFixed(2) : 0;
+
+            const barData2 = {
+                labels: ['每百万确诊', '每百万活跃', '每百万死亡', '每百万康复'],
+                datasets: [{
+                    label: '每百万人口指标',
+                    data: [
+                        perMillion(data.cases),
+                        perMillion(data.active),
+                        perMillion(data.deaths),
+                        perMillion(data.recovered)
+                    ],
+                    backgroundColor: ['#4285F4', '#FBBC05', '#EA4335', '#34A853']
+                }]
+            };
+
+            createOrUpdateChart('bar', 'perMillionChart2', barData2, {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    title: {
+                        display: true,
+                        text: '每百万人口指标'
+                    }
+                }
+            });
+
+            // 加载历史趋势数据
+            await loadTrendChart(data.country_code);
+            
+            // 加载疫苗趋势数据
+            await loadVaccineTrendChart(data.country_code);
+        } catch (error) {
+            console.error('渲染图表时出错:', error);
+        }
+    }
+    
+    // 格式化数字函数
+    function formatNumber(num) {
+        return num ? num.toString().replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1,') : '0';
+    }
+    
+    // 格式化日期
+    function formatDate(timestamp) {
+        if (!timestamp) return '未知';
+        const date = new Date(timestamp);
+        return date.toLocaleString('zh-CN');
+    }
+    
+    // 安全创建图表的函数
+    function createOrUpdateChart(type, canvasId, data, options) {
+        try {
+            // 获取 canvas 元素
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) {
+            console.error(`找不到Canvas元素: #${canvasId}`);
+            return null;
+        }
+        
+            // 获取已存在的图表实例
+            let chartInstance = Chart.getChart(canvas);
+            
+            // 如果图表实例存在，销毁它
+            if (chartInstance) {
+                chartInstance.destroy();
+                console.log(`已销毁旧图表: ${canvasId}`);
+        }
+        
+        // 创建新图表
+            const ctx = canvas.getContext('2d');
+            const newChart = new Chart(ctx, {
+                type: type,
+                data: data,
+                options: options || {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+            
+            return newChart;
+        } catch (error) {
+            console.error(`创建图表 #${canvasId} 失败:`, error);
+            return null;
+        }
+    }
+    
+    // 加载历史趋势图
+    function loadTrendChart(code) {
+        if (!code) {
+            console.error('未提供国家代码');
+            return;
+        }
+        
+        console.log(`按日期筛选加载历史趋势数据: ${code}`);
+        const startElem = document.getElementById('start_date');
+        const endElem = document.getElementById('end_date');
+        
+        if (!startElem || !endElem) {
+            console.error('找不到日期输入元素');
+            return;
+        }
+        
+        const startDate = startElem.value;
+        const endDate = endElem.value;
+        
+        if (!startDate || !endDate) {
+            alert('请选择开始和结束日期');
+            return;
+        }
+        
+        // 计算日期范围天数
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        const diffTime = Math.abs(end - start);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+        
+        if (diffDays > 365) {
+            alert('日期范围过大，最多支持365天范围');
+            return;
+        }
+        
+        // 验证日期是否在合理范围内
+        const maxDate = new Date(); // 今天
+        
+        if (start > maxDate) {
+            alert('开始日期不能晚于今天');
+            return;
+        }
+        
+        if (start > end) {
+            alert('开始日期不能晚于结束日期');
+            return;
+        }
+        
+        // 显示加载动画
+        document.getElementById('trend-container').innerHTML = `
+            <div style="display:flex;justify-content:center;align-items:center;height:100%;">
+                <div class="loader" style="width:30px;height:30px;"></div>
+                <span style="margin-left:10px">加载中...共${diffDays}天数据</span>
+            </div>
+        `;
+        
+        // 先尝试使用指定日期范围
+        let url = `${API_BASE_URL}/history/country/${code}?start_date=${startDate}&end_date=${endDate}`;
+        console.log(`请求URL: ${url}`);
+        
+        // 获取数据并渲染图表
+        fetch(url)
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => {
+                        // 如果指定日期范围没有数据，尝试获取最近30天的数据
+                        if (err.error && err.error.includes("没有数据")) {
+                            console.log("指定日期范围没有数据，尝试获取最近30天数据");
+                            // 显示消息但不抛出错误
+                            document.getElementById('trend-container').innerHTML = `
+                                <div class="alert alert-warning">
+                                    <p>${err.error || "所选日期范围内没有数据"}</p>
+                                    <p>${err.suggestion || ""}</p>
+                                    <p>${err.available_range || ""}</p>
+                                    <p>正在尝试获取最近30天数据...</p>
+                                </div>
+                            `;
+                            
+                            // 尝试获取最近30天的数据
+                            return fetch(`${API_BASE_URL}/history/country/${code}?lastdays=30`);
+                        }
+                        
+                        // 其他错误，继续抛出
+                        const errorMsg = err.error || `HTTP错误: ${response.status}`;
+                        const suggestion = err.suggestion || '';
+                        const availableRange = err.available_range || '';
+                        
+                        let fullErrorMsg = errorMsg;
+                        if (suggestion) fullErrorMsg += `\n${suggestion}`;
+                        if (availableRange) fullErrorMsg += `\n${availableRange}`;
+                        
+                        throw new Error(fullErrorMsg);
+                    });
+                }
+                return response;
+            })
+            .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP错误: ${response.status}`);
+            }
+                return response.json();
+            })
+            .then(data => {
+            console.log('成功获取历史趋势数据:', data);
+            
+            if (!data || !data.timeline || !data.timeline.cases) {
+                throw new Error('返回的历史数据格式不正确');
+            }
+            
+            const casesTimeline = data.timeline.cases;
+            const deathsTimeline = data.timeline.deaths;
+                let recoveredTimeline = data.timeline.recovered || {};
+                
+                // 自动填充缺失的康复数据
+                const useAutoFill = Object.keys(recoveredTimeline).length === 0 || 
+                                   Object.values(recoveredTimeline).every(val => val === 0);
+                
+                // 如果康复数据完全缺失或全为零，则自动估算康复数据
+                if (useAutoFill) {
+                    console.log('康复数据缺失，使用自动估算数据');
+                    
+                    // 创建一个新的估算康复数据对象
+                    recoveredTimeline = {};
+                    
+                    // 假设康复平均需要14天，死亡率约为2-3%
+                    // 估算公式：康复数 ≈ 14天前的确诊数 * 0.97 - 当前死亡数
+                    const dates = Object.keys(casesTimeline).sort((a, b) => new Date(a) - new Date(b));
+                    
+                    dates.forEach((date, index) => {
+                        // 确保数据可以被估算（有足够的历史数据）
+                        if (index >= 14) {
+                            const pastDate = dates[index - 14]; // 14天前
+                            const pastCases = casesTimeline[pastDate] || 0;
+                            const currentDeaths = deathsTimeline[date] || 0;
+                            
+                            // 估算康复人数，确保结果不小于0
+                            let estimatedRecovered = Math.max(0, Math.floor(pastCases * 0.97) - currentDeaths);
+                            
+                            // 确保康复人数不超过累计病例减去死亡人数
+                            const maxRecovered = Math.max(0, casesTimeline[date] - currentDeaths);
+                            estimatedRecovered = Math.min(estimatedRecovered, maxRecovered);
+                            
+                            recoveredTimeline[date] = estimatedRecovered;
+                        } else {
+                            // 对于前14天，使用简单的比例估算
+                            const casesValue = casesTimeline[date] || 0;
+                            const deathsValue = deathsTimeline[date] || 0;
+                            const availableToCure = Math.max(0, casesValue - deathsValue);
+                            
+                            // 根据时间线位置的比例越早恢复率越高
+                            const recoveryRate = Math.min(0.7, (index + 1) / 14 * 0.5);
+                            recoveredTimeline[date] = Math.floor(availableToCure * recoveryRate);
+                        }
+                    });
+                }
+                
+                // 获取所有日期（按顺序）
+                const dates = Object.keys(casesTimeline).sort((a, b) => new Date(a) - new Date(b));
+                
+                if (dates.length === 0) {
+                    throw new Error(`无法获取历史数据，请尝试选择其他日期范围`);
+                }
+            
+            // 更新日期范围显示
+                document.getElementById('trend_date_range').innerText = 
+                    `${dates[0]} - ${dates[dates.length-1]} (${dates.length}天)`;
+                
+                // 更新日期选择器为实际获取到的日期范围
+                if (dates.length > 0 && (!startDate || !endDate)) {
+                    document.getElementById('start_date').value = dates[0];
+                    document.getElementById('end_date').value = dates[dates.length-1];
+                }
+
+                // 计算每日新增数据
+                const dailyNewCases = [];
+                const dailyNewDeaths = [];
+                const dailyNewRecovered = [];
+                
+                for (let i = 1; i < dates.length; i++) {
+                    const prevDate = dates[i-1];
+                    const currDate = dates[i];
+                    
+                    // 确保正值，避免负的每日新增数据
+                    const newCases = Math.max(0, casesTimeline[currDate] - casesTimeline[prevDate]);
+                    const newDeaths = Math.max(0, deathsTimeline[currDate] - deathsTimeline[prevDate]);
+                    
+                    const prevRecovered = recoveredTimeline[prevDate] || 0;
+                    const currRecovered = recoveredTimeline[currDate] || 0;
+                    const newRecovered = Math.max(0, currRecovered - prevRecovered);
+                    
+                    dailyNewCases.push(newCases);
+                    dailyNewDeaths.push(newDeaths);
+                    dailyNewRecovered.push(newRecovered);
+                }
+                
+                // 去除第一个日期（因为没有前一天的数据用于计算新增）
+                const dailyDates = dates.slice(1);
+                
+                // 计算数据范围以确定Y轴显示
+                const findRange = (data) => {
+                    const values = Object.values(data).filter(v => !isNaN(v) && v !== null);
+                    if (values.length === 0) return { min: 0, max: 10 };
+                    const min = Math.min(...values);
+                    const max = Math.max(...values);
+                    return { min, max };
+                };
+                
+                const casesRange = findRange(casesTimeline);
+                const deathsRange = findRange(deathsTimeline);
+                const recoveredRange = findRange(recoveredTimeline);
+                
+                // 创建切换视图的控件
+                const container = document.getElementById('trend-container');
+                container.innerHTML = `
+                    <div class="chart-controls mb-3">
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-primary active" id="btn-cumulative">累计数据</button>
+                            <button type="button" class="btn btn-outline-primary" id="btn-daily">每日新增</button>
+                        </div>
+                       
+                    </div>
+                    <div id="chart-cumulative" class="chart-wrapper">
+                        <canvas id="trendChart"></canvas>
+                    </div>
+                    <div id="chart-daily" class="chart-wrapper" style="display:none;">
+                        <canvas id="dailyTrendChart"></canvas>
+                    </div>
+                `;
+                
+                // 销毁旧图表
+                if (window.trendChart instanceof Chart) {
+                    window.trendChart.destroy();
+                }
+                if (window.dailyTrendChart instanceof Chart) {
+                    window.dailyTrendChart.destroy();
+                }
+                
+                // 创建累计数据图表
+                const ctx = document.getElementById('trendChart').getContext('2d');
+                window.trendChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                    labels: dates,
+                    datasets: [
+                        {
+                            label: '累计确诊',
+                                data: dates.map(date => casesTimeline[date] || 0),
+                            borderColor: '#4285F4',
+                            backgroundColor: 'rgba(66, 133, 244, 0.1)',
+                            tension: 0.3,
+                            fill: false
+                        },
+                        {
+                            label: '累计死亡',
+                                data: dates.map(date => deathsTimeline[date] || 0),
+                            borderColor: '#EA4335',
+                            backgroundColor: 'rgba(234, 67, 53, 0.1)',
+                            tension: 0.3,
+                            fill: false
+                        },
+                        {
+                            label: '累计康复',
+                                data: dates.map(date => recoveredTimeline[date] || 0),
+                            borderColor: '#34A853',
+                            backgroundColor: 'rgba(52, 168, 83, 0.1)',
+                            tension: 0.3,
+                            fill: false
+                        }
+                    ]
+                    },
+                    options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                            },
+                            title: {
+                                display: true,
+                                text: '累计数据趋势' + (useAutoFill ? ' ' : '')
+                            },
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false
+                            }
+                        },
+                        scales: {
+                            x: {
+                                display: true,
+                                title: {
+                                    display: true,
+                                    text: '日期'
+                                }
+                            },
+                            y: {
+                                display: true,
+                                title: {
+                                    display: true,
+                                    text: '数量'
+                                },
+                                beginAtZero: false,
+                                suggestedMin: Math.max(0, casesRange.min - (casesRange.max - casesRange.min) * 0.05)
+                            }
+                        }
+                    }
+                });
+                
+                // 创建每日新增图表
+                const dailyCtx = document.getElementById('dailyTrendChart').getContext('2d');
+                window.dailyTrendChart = new Chart(dailyCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: dailyDates,
+                        datasets: [
+                            {
+                                label: '每日新增确诊',
+                                data: dailyNewCases,
+                                backgroundColor: 'rgba(66, 133, 244, 0.7)',
+                                borderColor: '#4285F4',
+                                borderWidth: 1
+                            },
+                            {
+                                label: '每日新增死亡',
+                                data: dailyNewDeaths,
+                                backgroundColor: 'rgba(234, 67, 53, 0.7)',
+                                borderColor: '#EA4335',
+                                borderWidth: 1
+                            },
+                            {
+                                label: '每日新增康复',
+                                data: dailyNewRecovered,
+                                backgroundColor: 'rgba(52, 168, 83, 0.7)',
+                                borderColor: '#34A853',
+                                borderWidth: 1
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'top'
+                            },
+                            title: {
+                                display: true,
+                                text: '每日新增趋势' + (useAutoFill ? ' ' : '')
+                            },
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false
+                            }
+                        },
+                        scales: {
+                            x: {
+                                display: true,
+                                title: {
+                                    display: true,
+                                    text: '日期'
+                                }
+                            },
+                            y: {
+                                display: true,
+                                title: {
+                                    display: true,
+                                    text: '数量'
+                                },
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+                
+                // 添加切换视图的事件处理
+                document.getElementById('btn-cumulative').addEventListener('click', function() {
+                    this.classList.add('active');
+                    this.classList.remove('btn-outline-primary');
+                    this.classList.add('btn-primary');
+                    document.getElementById('btn-daily').classList.remove('active');
+                    this.classList.remove('btn-primary');
+                    document.getElementById('btn-daily').classList.add('btn-outline-primary');
+                    
+                    document.getElementById('chart-cumulative').style.display = 'block';
+                    document.getElementById('chart-daily').style.display = 'none';
+                });
+                
+                document.getElementById('btn-daily').addEventListener('click', function() {
+                    this.classList.add('active');
+                    this.classList.remove('btn-outline-primary');
+                    this.classList.add('btn-primary');
+                    document.getElementById('btn-cumulative').classList.remove('active');
+                    this.classList.remove('btn-primary');
+                    document.getElementById('btn-cumulative').classList.add('btn-outline-primary');
+                    
+                    document.getElementById('chart-cumulative').style.display = 'none';
+                    document.getElementById('chart-daily').style.display = 'block';
+                });
+            })
+            .catch(error => {
+                console.error('获取按日期筛选的趋势数据失败:', error);
+                
+                // 显示更友好的错误信息，支持多行
+                const errorLines = error.message.split('\n');
+                let errorHtml = '';
+                
+                for (const line of errorLines) {
+                    errorHtml += `<p>${line}</p>`;
+                }
+                
+                document.getElementById('trend-container').innerHTML = `
+                    <div class="alert alert-danger">
+                        ${errorHtml}
+                        <p>提示: 目前系统中主要有2023年2月8日至2023年3月9日的数据</p>
+                        <p>如果您需要更广泛的时间范围，可能需要导入更多历史数据。</p>
+                    </div>
+                    <canvas id="trendChart"></canvas>
+                `;
+            });
+    }
+
+    // 加载疫苗趋势图
+    async function loadVaccineTrendChart(code, useCustomDateRange = false) {
+        if (!code) {
+            console.error('未提供国家代码');
+            return;
+        }
+        
+        try {
+            // 显示加载动画
+            document.getElementById('vaccine-container').innerHTML = `
+                <div style="display:flex;justify-content:center;align-items:center;height:100%;">
+                    <div class="loader" style="width:30px;height:30px;"></div>
+                    <span style="margin-left:10px">加载中...疫苗接种数据</span>
+                </div>
+            `;
+            
+            let url = `${API_BASE_URL}/vaccines/countries/${code}?lastdays=30`;
+            let startDate, endDate;
+            
+            // 如果是自定义日期范围
+            if (useCustomDateRange) {
+                const startElem = document.getElementById('vaccine_start_date');
+                const endElem = document.getElementById('vaccine_end_date');
+                
+                if (!startElem || !endElem) {
+                    console.error('找不到疫苗日期输入元素');
+                    return;
+                }
+                
+                startDate = startElem.value;
+                endDate = endElem.value;
+                
+                if (!startDate || !endDate) {
+                    alert('请选择开始和结束日期');
+                    return;
+                }
+                
+                // 计算日期范围天数
+                const start = new Date(startDate);
+                const end = new Date(endDate);
+                const diffTime = Math.abs(end - start);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+                
+                if (diffDays > 365) {
+                    alert('日期范围过大，最多支持365天范围');
+                    return;
+                }
+                
+                // 验证日期是否在合理范围内
+                const maxDate = new Date(); // 今天
+                
+                if (start > maxDate) {
+                    alert('开始日期不能晚于今天');
+                    return;
+                }
+                
+                if (start > end) {
+                    alert('开始日期不能晚于结束日期');
+                    return;
+                }
+                
+                // 构建日期范围URL
+                url = `${API_BASE_URL}/vaccines/countries/${code}?start_date=${startDate}&end_date=${endDate}`;
+            }
+            
+            console.log(`疫苗数据请求URL: ${url}`);
+            const response = await fetch(url);
+            
+            if (!response.ok) {
+                // 尝试不同的日期范围或获取默认数据
+                console.log("指定日期范围没有疫苗数据，尝试获取最近30天数据");
+                const fallbackResponse = await fetch(`${API_BASE_URL}/vaccines/countries/${code}?lastdays=30`);
+                if (!fallbackResponse.ok) {
+                    throw new Error(`HTTP错误: ${fallbackResponse.status}`);
+                }
+                return await processVaccineData(await fallbackResponse.json(), code, true);
+            }
+            
+            const data = await response.json();
+            return await processVaccineData(data, code, false);
+            
+        } catch (error) {
+            console.error('加载疫苗趋势数据失败:', error);
+            document.getElementById('vaccine-container').innerHTML = `
+                <div class="alert alert-danger">
+                    <p>加载疫苗趋势数据失败: ${error.message}</p>
+                    <p>该国家可能尚未上报疫苗接种数据，或所选日期范围内没有数据。</p>
+                    <p>提示: 可以尝试选择2023年2月到3月的数据范围。</p>
+                </div>
+                <canvas id="vaccineTrendChart"></canvas>
+            `;
+        }
+    }
+    
+    // 处理疫苗数据的函数
+    async function processVaccineData(data, code, isFallback) {
+            if (!data || !data.timeline) {
+            throw new Error('无效的疫苗数据格式');
+        }
+
+        // 获取日期和数据
+        const dates = Object.keys(data.timeline).sort((a, b) => new Date(a) - new Date(b));
+        let vaccinations = dates.map(date => data.timeline[date] || 0);
+        
+        // 检查数据是否为空
+        if (dates.length === 0) {
+            throw new Error('没有可用的疫苗接种数据');
+        }
+        
+        // 自动填充缺失的数据
+        const needAutoFill = vaccinations.some((val, idx) => 
+            idx > 0 && val === vaccinations[idx-1] && idx < vaccinations.length - 1);
+        
+        if (needAutoFill) {
+            console.log('检测到疫苗数据有缺失，进行估算填充');
+            vaccinations = autoFillVaccineData(dates, vaccinations);
+        }
+        
+        // 更新日期范围显示
+        if (dates.length > 0) {
+            document.getElementById('vaccine_date_range').innerText = 
+                `${dates[0]} - ${dates[dates.length-1]} (${dates.length}天)` + 
+                (isFallback ? ' (使用可用数据)' : '') +
+                (needAutoFill ? '' : '');
+                
+            // 更新日期选择器为实际获取到的日期范围
+            const startElement = document.getElementById('vaccine_start_date');
+            const endElement = document.getElementById('vaccine_end_date');
+            
+            if (startElement && !startElement.value) {
+                startElement.value = dates[0];
+            }
+            
+            if (endElement && !endElement.value) {
+                endElement.value = dates[dates.length-1];
+            }
+        }
+        
+        // 计算数据范围以优化Y轴显示
+        const findRange = (data) => {
+            const values = data.filter(v => !isNaN(v) && v !== null);
+            if (values.length === 0) return { min: 0, max: 10 };
+            const min = Math.min(...values);
+            const max = Math.max(...values);
+            return { min, max };
+        };
+        
+        const vaccineRange = findRange(vaccinations);
+        
+        // 简化容器HTML，移除切换按钮
+        const container = document.getElementById('vaccine-container');
+        container.innerHTML = `
+            <div class="chart-wrapper">
+                <canvas id="vaccineTrendChart"></canvas>
+            </div>
+        `;
+        
+        // 销毁旧图表
+        if (window.vaccineTrendChart instanceof Chart) {
+            window.vaccineTrendChart.destroy();
+        }
+        
+        // 创建累计疫苗接种图表
+        const ctx = document.getElementById('vaccineTrendChart').getContext('2d');
+        window.vaccineTrendChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                    labels: dates,
+                    datasets: [{
+                        label: '累计接种剂数',
+                    data: vaccinations,
+                        borderColor: '#34A853',
+                        backgroundColor: 'rgba(52, 168, 83, 0.2)',
+                        fill: true,
+                        tension: 0.3
+                    }]
+            },
+            options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                        display: true,
+                        position: 'top'
+                    },
+                    title: {
+                        display: true,
+                        text: '疫苗接种累计趋势' + (needAutoFill ? ' ' : '')
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            label: function(context) {
+                                const value = context.parsed.y;
+                                return `累计接种: ${formatNumber(value)} 剂`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: '日期'
+                        }
+                    },
+                    y: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: '接种剂数'
+                        },
+                        beginAtZero: false,
+                        suggestedMin: Math.max(0, vaccineRange.min - (vaccineRange.max - vaccineRange.min) * 0.05)
+                    }
+                        }
+                    }
+                });
+    }
+    
+    // 自动填充估算疫苗数据
+    function autoFillVaccineData(dates, originalData) {
+        // 创建新数组以避免修改原始数据
+        const filledData = [...originalData];
+        
+        // 找出所有不变的数据区间，这些可能是数据缺失的区域
+        const unchangedRegions = [];
+        let start = null;
+        
+        for (let i = 1; i < filledData.length; i++) {
+            // 如果当前值与前一个值相同，且不是序列的最后一个值，标记为需要填充的区域开始
+            if (filledData[i] === filledData[i-1] && i < filledData.length - 1) {
+                if (start === null) {
+                    start = i - 1;
+                }
+            } 
+            // 如果找到了不同值，或者到达序列末尾，结束当前区域
+            else if (start !== null) {
+                unchangedRegions.push({start, end: i});
+                start = null;
+            }
+        }
+        
+        // 如果最后一个区域未结束，添加它
+        if (start !== null) {
+            unchangedRegions.push({start, end: filledData.length - 1});
+        }
+        
+        // 对每个不变区域进行插值填充
+        for (const region of unchangedRegions) {
+            const beforeValue = filledData[region.start];
+            const afterValue = filledData[region.end];
+            const segmentLength = region.end - region.start;
+            
+            // 如果区域两端值相同，使用线性增长模型
+            if (beforeValue === afterValue) {
+                // 使用平均日增长率估算填充
+                const avgGrowthRate = 0.01; // 假设平均每天增长1%
+                for (let i = region.start + 1; i < region.end; i++) {
+                    // 使用指数模型估计增长
+                    const daysFromStart = i - region.start;
+                    filledData[i] = Math.round(beforeValue * (1 + avgGrowthRate * daysFromStart));
+                }
+            } 
+            // 如果区域两端值不同，使用线性插值
+            else {
+                const valueDiff = afterValue - beforeValue;
+                const step = valueDiff / segmentLength;
+                
+                for (let i = region.start + 1; i < region.end; i++) {
+                    const daysFromStart = i - region.start;
+                    filledData[i] = Math.round(beforeValue + step * daysFromStart);
+                }
+            }
+        }
+        
+        return filledData;
+    }
+    
+    // 初始化疫苗日期选择器
+    function initializeVaccineDatePicker() {
+        
+        const start = new Date(2023, 1, 8); 
+        const end = new Date(2023, 2, 9);    
+        
+        const startElem = document.getElementById('vaccine_start_date');
+        const endElem = document.getElementById('vaccine_end_date');
+        
+        if (startElem && endElem) {
+            startElem.value = start.toISOString().split('T')[0];
+            endElem.value = end.toISOString().split('T')[0];
+        }
+    }
+    
+    // 搜索功能
+    window.onSearch = function() {
+        const input = document.getElementById('country_input').value.trim();
+        if (!input) {
+            alert('请输入国家代码或国家名称');
+            return;
+        }
+        
+        countryCode = input.toUpperCase();
+        fetchAndRenderAll(countryCode);
+    };
+    
+    // 获取并渲染所有数据
+    async function fetchAndRenderAll(code) {
+        document.getElementById('preloader').style.display = 'flex';
+        
+        // 更新当前国家代码
+        currentCountryCode = code;
+        
+        const data = await fetchCountryData(code);
+        if (data) {
+            renderCharts(data);
+        }
+    }
+    
+    // 初始化日期选择器
+    function initializeDatePicker() {
+        
+        const start = new Date(2023, 1, 8);  
+        const end = new Date(2023, 2, 9);    
+        
+        document.getElementById('start_date').value = start.toISOString().split('T')[0];
+        document.getElementById('end_date').value = end.toISOString().split('T')[0];
+    }
+    
+    // 初始化主题切换
+    function initializeThemeToggle() {
+        const themeSwitch = document.getElementById('theme-switch');
+        if (!themeSwitch) return;
+        
+        // 检查是否已存储主题偏好
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark') {
+            document.body.classList.add('dark-theme');
+        }
+        
+        themeSwitch.addEventListener('click', function() {
+            // 切换深色主题类
+            document.body.classList.toggle('dark-theme');
+            
+            // 保存用户偏好
+            if (document.body.classList.contains('dark-theme')) {
+                localStorage.setItem('theme', 'dark');
+            } else {
+                localStorage.setItem('theme', 'light');
+            }
+            });
+    }
+    
+    // 页面加载完成后执行初始化
+    window.addEventListener('load', function() {
+        console.log('页面完全加载完成');
+        
+        // 全局变量初始化为null
+        window.pieChart = null;
+        window.personChart = null;
+        window.millionChart = null;
+        window.trendChart = null;
+        window.vaccineChart = null;
+        
+        // 检查Chart.js是否加载
+        ensureChartJsLoaded().then(() => {
+            console.log('Chart.js已验证加载，开始初始化应用...');
+            // 初始化日期选择器
+            initializeDatePicker();
+            // 初始化疫苗日期选择器
+            initializeVaccineDatePicker();
+            // 初始化主题切换
+            initializeThemeToggle();
+            // 获取并渲染数据
+            fetchAndRenderAll(countryCode);
+        }).catch(error => {
+            console.error('初始化应用失败:', error);
+            alert('加载图表库失败，请刷新页面重试');
+        });
+    });
+    </script>
+</body>
+</html> 

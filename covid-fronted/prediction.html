@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>全球新冠疫情数据分析统计系统 - 疫情预测</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/leaflet.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .prediction-container {
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+        }
+        
+        .prediction-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #f0f0f0;
+            padding-bottom: 10px;
+        }
+        
+        .prediction-card {
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        
+        .chart-container {
+            height: 400px;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        
+        .prediction-metrics {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .metric-card {
+            flex: 1;
+            min-width: 200px;
+            background-color: white;
+            border-radius: 6px;
+            padding: 15px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+        
+        .metric-card .metric-title {
+            font-size: 0.85rem;
+            color: #6c757d;
+            margin-bottom: 5px;
+        }
+        
+        .metric-card .metric-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        
+        .metric-card .metric-delta {
+            font-size: 0.85rem;
+            display: block;
+            margin-top: 3px;
+        }
+        
+        .metric-card.confirmed {
+            border-top: 3px solid #4285F4;
+        }
+        
+        .metric-card.deaths {
+            border-top: 3px solid #EA4335;
+        }
+        
+        .metric-card.recovered {
+            border-top: 3px solid #34A853;
+        }
+        
+        .prediction-controls {
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .country-selector {
+            margin-bottom: 15px;
+        }
+        
+        .method-selector {
+            margin-bottom: 15px;
+        }
+        
+        .days-selector {
+            margin-bottom: 15px;
+        }
+        
+        /* 图例样式 */
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            font-size: 0.85rem;
+        }
+        
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 3px;
+            margin-right: 5px;
+        }
+        
+        /* 加载动画 */
+        .loader-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(255,255,255,0.7);
+            border-radius: 6px;
+            z-index: 10;
+        }
+        
+        .loader {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #4285F4;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .confidence-band {
+            opacity: 0.2;
+        }
+        
+        /* 错误消息 */
+        .error-message {
+            color: #EA4335;
+            padding: 15px;
+            background-color: #FFF5F5;
+            border-radius: 6px;
+            margin-bottom: 15px;
+        }
+        
+        /* 深色模式 */
+        body.dark-theme .prediction-container {
+            background-color: #1f1f1f;
+            color: #e8eaed;
+        }
+        
+        body.dark-theme .prediction-card,
+        body.dark-theme .prediction-controls {
+            background-color: #2d2d2d;
+            color: #e8eaed;
+        }
+        
+        body.dark-theme .metric-card {
+            background-color: #2d2d2d;
+            color: #e8eaed;
+        }
+        
+        body.dark-theme .metric-card .metric-title {
+            color: #9aa0a6;
+        }
+    </style>
+</head>
+<body>
+    <!-- 预加载遮罩 -->
+    <div id="preloader" class="preload-overlay">
+        <div class="loader"></div>
+        <div>正在加载数据，请稍候...</div>
+    </div>
+
+    <div class="container-fluid px-0">
+        <header class="header py-3">
+            <div class="container">
+                <h1 class="text-center mb-0">全球新冠疫情数据分析统计系统</h1>
+            </div>
+        </header>
+
+        <!-- 导航菜单 -->
+        <div class="container-fluid px-4">
+            <div class="row">
+                <div class="col-12">
+                    <nav class="main-nav">
+                        <ul class="nav-list">
+                            <li class="nav-item">
+                                <a href="index.html" class="nav-link">首页</a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="countries.html" class="nav-link">所有国家</a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="china.html" class="nav-link">中国</a>
+                            </li>
+                            <li class="nav-item active">
+                                <a class="nav-link" href="prediction.html">疫情预测</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="monitor.html">数据流监控</a>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+
+        <!-- 主要内容区域 -->
+        <div class="container-fluid px-4 mt-4">
+            <div class="row">
+                <!-- 左侧控制面板 -->
+                <div class="col-lg-3 mb-4">
+                    <div class="prediction-container">
+                        <h4 class="mb-3">预测控制面板</h4>
+                        
+                        <div class="prediction-controls">
+                            <div class="country-selector">
+                                <label for="country-select" class="form-label">选择国家/地区</label>
+                                <select class="form-select" id="country-select">
+                                    <option value="global" selected>全球</option>
+                                    <!-- 国家选项将通过JS动态添加 -->
+                                </select>
+                            </div>
+                            
+                            <div class="method-selector">
+                                <label class="form-label">预测方法</label>
+                                <div id="prediction-methods">
+                                    <!-- 预测方法选项将通过JS动态添加 -->
+                                </div>
+                            </div>
+                            
+                            <div class="days-selector">
+                                <label for="days-range" class="form-label">预测天数：<span id="days-value">7</span>天</label>
+                                <input type="range" class="form-range" min="3" max="30" value="7" id="days-range">
+                            </div>
+                            
+                            <button id="prediction-button" class="btn btn-primary w-100">
+                                <i class="fas fa-chart-line me-2"></i>生成预测
+                            </button>
+                        </div>
+                        
+                        <div class="prediction-info mt-4">
+                            <h5>预测说明</h5>
+                            <p class="small text-muted">
+                                本预测基于历史数据，使用时间序列分析模型进行短期趋势预测。预测结果仅供参考，不应作为疫情发展的精确判断依据。
+                            </p>
+                            <p class="small text-muted">
+                                图表中的阴影区域表示95%置信区间，实际值有95%的可能性落在该区域内。
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 右侧预测结果 -->
+                <div class="col-lg-9">
+                    <!-- 预测指标卡片 -->
+                    <div class="prediction-container">
+                        <div class="prediction-header">
+                            <h4>预测结果</h4>
+                            <div>
+                                <span class="badge bg-secondary" id="prediction-region">全球</span>
+                                <span class="badge bg-info" id="prediction-date-range">未来7天</span>
+                            </div>
+                        </div>
+                        
+                        <div class="prediction-metrics" id="prediction-metrics">
+                            <!-- 预测指标将通过JS动态添加 -->
+                        </div>
+                    </div>
+                    
+                    <!-- 确诊病例预测图表 -->
+                    <div class="prediction-container">
+                        <h5>确诊病例预测</h5>
+                        <div class="legend">
+                            <div class="legend-item">
+                                <div class="legend-color" style="background-color: #4285F4;"></div>
+                                <span>历史数据</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color" style="background-color: #22c55e; height: 8px; border-style: dashed; border-width: 0 0 3px 0; border-color: #FFF;"></div>
+                                <span>预测数据</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color" style="background-color: #22c55e; opacity: 0.2;"></div>
+                                <span>95%置信区间</span>
+                            </div>
+                        </div>
+                        <div class="chart-container" id="cases-prediction-chart">
+                            <div class="loader-container" id="cases-chart-loader">
+                                <div class="loader"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 死亡病例预测图表 -->
+                    <div class="prediction-container">
+                        <h5>死亡病例预测</h5>
+                        <div class="legend">
+                            <div class="legend-item">
+                                <div class="legend-color" style="background-color: #EA4335;"></div>
+                                <span>历史数据</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color" style="background-color: #9C27B0; height: 8px; border-style: dashed; border-width: 0 0 3px 0; border-color: #FFF;"></div>
+                                <span>预测数据</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color" style="background-color: #9C27B0; opacity: 0.2;"></div>
+                                <span>95%置信区间</span>
+                            </div>
+                        </div>
+                        <div class="chart-container" id="deaths-prediction-chart">
+                            <div class="loader-container" id="deaths-chart-loader">
+                                <div class="loader"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 恢复病例预测图表 -->
+                    <div class="prediction-container">
+                        <h5>恢复病例预测</h5>
+                        <div class="legend">
+                            <div class="legend-item">
+                                <div class="legend-color" style="background-color: #34A853;"></div>
+                                <span>历史数据</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color" style="background-color: #ff9500; height: 8px; border-style: dashed; border-width: 0 0 3px 0; border-color: #FFF;"></div>
+                                <span>预测数据</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color" style="background-color: #ff9500; opacity: 0.2;"></div>
+                                <span>95%置信区间</span>
+                            </div>
+                        </div>
+                        <div class="chart-container" id="recovered-prediction-chart">
+                            <div class="loader-container" id="recovered-chart-loader">
+                                <div class="loader"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-light py-3 mt-4">
+        <div class="container text-center">
+            <p>全球新冠疫情数据分析统计系统 © 2025</p>
+            <p class="text-muted">
+                数据更新时间: <span id="update-time">加载中...</span>
+                <span class="next-update">下次更新: <span id="update-countdown">5:00</span></span>
+            </p>
+        </div>
+    </footer>
+
+    <!-- 主题切换按钮 -->
+    <div class="theme-toggle">
+        <button id="theme-switch">
+            <i class="fas fa-moon"></i>
+            <i class="fas fa-sun"></i>
+        </button>
+    </div>
+
+    <!-- JavaScript库 -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"></script>
+    
+    <script>
+    // API基础URL
+    const API_BASE_URL = 'http://49.232.28.106:5000/api';
+    
+    // 全局变量
+    let casesChart = null;
+    let deathsChart = null;
+    let recoveredChart = null;
+    let countries = [];
+    let predictionMethods = [];
+    let selectedRegion = 'global';
+    let selectedMethod = 'arima';
+    let selectedDays = 7;
+    
+    // 页面加载时执行
+    document.addEventListener('DOMContentLoaded', function() {
+        // 初始化主题
+        initializeTheme();
+        
+        // 获取国家列表
+        fetchCountries();
+        
+        // 获取预测方法
+        fetchPredictionMethods();
+        
+        // 设置滑块事件
+        document.getElementById('days-range').addEventListener('input', function() {
+            document.getElementById('days-value').innerText = this.value;
+            selectedDays = parseInt(this.value);
+        });
+        
+        // 设置国家选择事件
+        document.getElementById('country-select').addEventListener('change', function() {
+            selectedRegion = this.value;
+            document.getElementById('prediction-region').innerText = 
+                this.value === 'global' ? '全球' : this.options[this.selectedIndex].text;
+        });
+        
+        // 设置预测按钮点击事件
+        document.getElementById('prediction-button').addEventListener('click', function() {
+            this.disabled = true;
+            this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 计算中...';
+            
+            // 显示加载动画
+            document.getElementById('cases-chart-loader').style.display = 'flex';
+            document.getElementById('deaths-chart-loader').style.display = 'flex';
+            document.getElementById('recovered-chart-loader').style.display = 'flex';
+            
+            // 更新预测日期范围显示
+            document.getElementById('prediction-date-range').innerText = `未来${selectedDays}天`;
+            
+            // 根据选择的区域执行预测
+            if (selectedRegion === 'global') {
+                fetchGlobalPrediction(selectedDays, selectedMethod);
+            } else {
+                fetchCountryPrediction(selectedRegion, selectedDays, selectedMethod);
+            }
+            
+            setTimeout(() => {
+                this.disabled = false;
+                this.innerHTML = '<i class="fas fa-chart-line me-2"></i>生成预测';
+            }, 2000);
+        });
+        
+        // 默认执行全球预测
+        fetchGlobalPrediction(selectedDays, selectedMethod);
+    });
+    
+    // 获取国家列表
+    function fetchCountries() {
+        fetch(`${API_BASE_URL}/countries`)
+            .then(response => response.json())
+            .then(data => {
+                // 保存国家数据
+                countries = data;
+                
+                // 填充国家下拉框
+                const countrySelect = document.getElementById('country-select');
+                
+                // 按国家名称排序
+                data.sort((a, b) => {
+                    if (a.country_name < b.country_name) return -1;
+                    if (a.country_name > b.country_name) return 1;
+                    return 0;
+                });
+                
+                data.forEach(country => {
+                    if (country.country_code && country.country_name) {
+                        const option = document.createElement('option');
+                        option.value = country.country_code;
+                        option.textContent = country.country_name;
+                        countrySelect.appendChild(option);
+                    }
+                });
+                
+                // 隐藏加载动画
+                document.getElementById('preloader').style.display = 'none';
+            })
+            .catch(error => {
+                console.error('获取国家列表失败:', error);
+                // 隐藏加载动画
+                document.getElementById('preloader').style.display = 'none';
+                alert('获取国家列表失败，请刷新页面重试');
+            });
+    }
+    
+    // 获取预测方法
+    function fetchPredictionMethods() {
+        fetch(`${API_BASE_URL}/prediction/methods`)
+            .then(response => response.json())
+            .then(data => {
+                // 保存预测方法
+                predictionMethods = data;
+                
+                // 填充预测方法选项
+                const methodsContainer = document.getElementById('prediction-methods');
+                
+                data.forEach(method => {
+                    const methodDiv = document.createElement('div');
+                    methodDiv.className = 'form-check';
+                    
+                    const input = document.createElement('input');
+                    input.className = 'form-check-input';
+                    input.type = 'radio';
+                    input.name = 'predictionMethod';
+                    input.id = `method-${method.id}`;
+                    input.value = method.id;
+                    input.checked = method.default;
+                    
+                    if (method.default) {
+                        selectedMethod = method.id;
+                    }
+                    
+                    input.addEventListener('change', function() {
+                        selectedMethod = this.value;
+                    });
+                    
+                    const label = document.createElement('label');
+                    label.className = 'form-check-label';
+                    label.htmlFor = `method-${method.id}`;
+                    label.textContent = method.name;
+                    
+                    // 添加提示
+                    const description = document.createElement('small');
+                    description.className = 'd-block text-muted ms-4';
+                    description.textContent = method.description;
+                    
+                    methodDiv.appendChild(input);
+                    methodDiv.appendChild(label);
+                    methodDiv.appendChild(description);
+                    methodsContainer.appendChild(methodDiv);
+                });
+            })
+            .catch(error => {
+                console.error('获取预测方法失败:', error);
+                
+                // 创建默认预测方法
+                const methodsContainer = document.getElementById('prediction-methods');
+                
+                const methodDiv = document.createElement('div');
+                methodDiv.className = 'form-check';
+                
+                const input = document.createElement('input');
+                input.className = 'form-check-input';
+                input.type = 'radio';
+                input.name = 'predictionMethod';
+                input.id = 'method-arima';
+                input.value = 'arima';
+                input.checked = true;
+                
+                const label = document.createElement('label');
+                label.className = 'form-check-label';
+                label.htmlFor = 'method-arima';
+                label.textContent = 'ARIMA模型';
+                
+                methodDiv.appendChild(input);
+                methodDiv.appendChild(label);
+                methodsContainer.appendChild(methodDiv);
+            });
+    }
+    
+    // 获取全球预测数据
+    function fetchGlobalPrediction(days, method) {
+        fetch(`${API_BASE_URL}/prediction/global?days=${days}&method=${method}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`API请求失败，状态码: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.status === "error") {
+                    throw new Error(data.message || "获取预测数据失败");
+                }
+                
+                
+                if (data.note === "使用模拟数据") {
+                    const alertDiv = document.createElement('div');
+                    alertDiv.className = 'alert alert-warning mt-2 mb-3';
+                    alertDiv.innerHTML = '<i class="fas fa-info-circle me-2"></i>由于数据库中缺少足够的历史数据，当前显示的是基于模拟数据的预测结果，仅供演示';
+                    
+                    const metricsContainer = document.getElementById('prediction-metrics');
+                    if (metricsContainer.parentNode.querySelector('.alert') === null) {
+                        metricsContainer.parentNode.insertBefore(alertDiv, metricsContainer);
+                    }
+                }
+                
+                // 更新预测指标
+                updatePredictionMetrics(data.prediction);
+                
+                // 渲染预测图表
+                renderPredictionCharts(data);
+            })
+            .catch(error => {
+                console.error('获取全球预测数据失败:', error);
+                
+                // 隐藏加载动画
+                document.getElementById('cases-chart-loader').style.display = 'none';
+                document.getElementById('deaths-chart-loader').style.display = 'none';
+                document.getElementById('recovered-chart-loader').style.display = 'none';
+                
+                // 清空预测指标容器
+                document.getElementById('prediction-metrics').innerHTML = `
+                    <div class="error-message">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        获取预测数据失败: ${error.message || '服务器错误'}
+                    </div>
+                `;
+                
+                // 显示错误消息
+                const chartsContainers = [
+                    document.getElementById('cases-prediction-chart'),
+                    document.getElementById('deaths-prediction-chart'),
+                    document.getElementById('recovered-prediction-chart')
+                ];
+                
+                chartsContainers.forEach(container => {
+                    // 确保容器中只有加载器，然后替换为错误消息
+                    if (container.querySelector('.error-message') === null) {
+                        container.innerHTML = `
+                            <div class="error-message">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                获取预测数据失败: ${error.message || '服务器错误'}
+                            </div>
+                        `;
+                    }
+                });
+            });
+    }
+    
+    // 获取国家预测数据
+    function fetchCountryPrediction(countryCode, days, method) {
+        fetch(`${API_BASE_URL}/prediction/country/${countryCode}?days=${days}&method=${method}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`API请求失败，状态码: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.status === "error") {
+                    throw new Error(data.message || "获取预测数据失败");
+                }
+                
+              
+                if (data.note === "使用模拟数据") {
+                    const alertDiv = document.createElement('div');
+                    alertDiv.className = 'alert alert-warning mt-2 mb-3';
+                    alertDiv.innerHTML = '<i class="fas fa-info-circle me-2"></i>由于数据库中缺少足够的历史数据，当前显示的是基于模拟数据的预测结果，仅供演示';
+                    
+                    const metricsContainer = document.getElementById('prediction-metrics');
+                    if (metricsContainer.parentNode.querySelector('.alert') === null) {
+                        metricsContainer.parentNode.insertBefore(alertDiv, metricsContainer);
+                    }
+                }
+                
+                // 更新预测指标
+                updatePredictionMetrics(data.prediction);
+                
+                // 渲染预测图表
+                renderPredictionCharts(data);
+            })
+            .catch(error => {
+                console.error(`获取国家(${countryCode})预测数据失败:`, error);
+                
+                // 隐藏加载动画
+                document.getElementById('cases-chart-loader').style.display = 'none';
+                document.getElementById('deaths-chart-loader').style.display = 'none';
+                document.getElementById('recovered-chart-loader').style.display = 'none';
+                
+                // 清空预测指标容器
+                document.getElementById('prediction-metrics').innerHTML = `
+                    <div class="error-message">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        获取预测数据失败: ${error.message || '服务器错误'}
+                    </div>
+                `;
+                
+                // 显示错误消息
+                const chartsContainers = [
+                    document.getElementById('cases-prediction-chart'),
+                    document.getElementById('deaths-prediction-chart'),
+                    document.getElementById('recovered-prediction-chart')
+                ];
+                
+                chartsContainers.forEach(container => {
+                    // 确保容器中只有加载器，然后替换为错误消息
+                    if (container.querySelector('.error-message') === null) {
+                        container.innerHTML = `
+                            <div class="error-message">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                获取预测数据失败: ${error.message || '服务器错误'}
+                            </div>
+                        `;
+                    }
+                });
+            });
+    }
+    
+    // 更新预测指标
+    function updatePredictionMetrics(prediction) {
+        const metricsContainer = document.getElementById('prediction-metrics');
+        metricsContainer.innerHTML = '';
+        
+        // 获取最后一天的预测值
+        const lastDayIndex = prediction.dates.length - 1;
+        
+        // 确诊病例指标
+        const casesCard = createMetricCard(
+            '预测确诊病例',
+            prediction.cases.values[lastDayIndex],
+            prediction.cases.values[0],
+            'confirmed'
+        );
+        metricsContainer.appendChild(casesCard);
+        
+        // 死亡病例指标
+        const deathsCard = createMetricCard(
+            '预测死亡病例',
+            prediction.deaths.values[lastDayIndex],
+            prediction.deaths.values[0],
+            'deaths'
+        );
+        metricsContainer.appendChild(deathsCard);
+        
+        // 恢复病例指标（如果有数据）
+        if (prediction.recovered.values[lastDayIndex] > 0) {
+            const recoveredCard = createMetricCard(
+                '预测恢复病例',
+                prediction.recovered.values[lastDayIndex],
+                prediction.recovered.values[0],
+                'recovered'
+            );
+            metricsContainer.appendChild(recoveredCard);
+        }
+    }
+    
+    // 创建指标卡片
+    function createMetricCard(title, value, startValue, type) {
+        const card = document.createElement('div');
+        card.className = `metric-card ${type}`;
+        
+        const titleElement = document.createElement('div');
+        titleElement.className = 'metric-title';
+        titleElement.textContent = title;
+        
+        const valueElement = document.createElement('div');
+        valueElement.className = 'metric-value';
+        valueElement.textContent = formatNumber(value);
+        
+        // 计算变化
+        const delta = value - startValue;
+        const deltaElement = document.createElement('span');
+        deltaElement.className = 'metric-delta';
+        
+        if (delta > 0) {
+            deltaElement.textContent = `+${formatNumber(delta)} (${formatPercentage(delta, startValue)})`;
+            deltaElement.style.color = '#EA4335';
+        } else if (delta < 0) {
+            deltaElement.textContent = `${formatNumber(delta)} (${formatPercentage(delta, startValue)})`;
+            deltaElement.style.color = '#34A853';
+        } else {
+            deltaElement.textContent = '无变化';
+            deltaElement.style.color = '#9AA0A6';
+        }
+        
+        card.appendChild(titleElement);
+        card.appendChild(valueElement);
+        card.appendChild(deltaElement);
+        
+        return card;
+    }
+    
+    // 渲染预测图表
+    function renderPredictionCharts(data) {
+        const history = data.history;
+        const prediction = data.prediction;
+        
+        // 渲染确诊病例预测图表
+        renderPredictionChart(
+            'cases-prediction-chart',
+            '确诊病例预测',
+            history.dates,
+            prediction.dates,
+            history.cases,
+            prediction.cases.values,
+            prediction.cases.lower,
+            prediction.cases.upper,
+            '#4285F4',
+            '#22c55e',
+            'casesChart'
+        );
+        
+        // 渲染死亡病例预测图表
+        renderPredictionChart(
+            'deaths-prediction-chart',
+            '死亡病例预测',
+            history.dates,
+            prediction.dates,
+            history.deaths,
+            prediction.deaths.values,
+            prediction.deaths.lower,
+            prediction.deaths.upper,
+            '#EA4335',
+            '#9C27B0',
+            'deathsChart'
+        );
+        
+        // 渲染恢复病例预测图表
+        renderPredictionChart(
+            'recovered-prediction-chart',
+            '恢复病例预测',
+            history.dates,
+            prediction.dates,
+            history.recovered,
+            prediction.recovered.values,
+            prediction.recovered.lower,
+            prediction.recovered.upper,
+            '#34A853',
+            '#ff9500',
+            'recoveredChart'
+        );
+    }
+    
+    // 渲染单个预测图表
+    function renderPredictionChart(containerId, title, historyDates, predictionDates, historyValues, predictionValues, lowerBound, upperBound, historyColor, predictionColor, chartVar) {
+        // 隐藏加载动画
+        document.getElementById(`${containerId.split('-')[0]}-chart-loader`).style.display = 'none';
+        
+        // 获取容器
+        const container = document.getElementById(containerId);
+        
+        // 检查是否已有canvas
+        let canvas = container.querySelector('canvas');
+        if (!canvas) {
+            canvas = document.createElement('canvas');
+            container.appendChild(canvas);
+        }
+        
+        // 销毁旧图表
+        if (window[chartVar]) {
+            window[chartVar].destroy();
+        }
+        
+        // 合并日期和数据以显示连续的图表
+        const allDates = [...historyDates, ...predictionDates];
+        
+        // 创建预测边界填充数据集
+        const areaData = [];
+        
+        // 先添加预测期第一天的数据（连接历史和预测）
+        areaData.push({
+            x: predictionDates[0],
+            y: upperBound[0]
+        });
+        
+        // 添加上边界（正向）
+        predictionDates.forEach((date, i) => {
+            areaData.push({
+                x: date,
+                y: upperBound[i]
+            });
+        });
+        
+        // 添加下边界（反向）
+        for (let i = predictionDates.length - 1; i >= 0; i--) {
+            areaData.push({
+                x: predictionDates[i],
+                y: lowerBound[i]
+            });
+        }
+        
+        // 补全区域（回到起点）
+        areaData.push({
+            x: predictionDates[0],
+            y: upperBound[0]
+        });
+        
+        // 创建图表
+        window[chartVar] = new Chart(canvas, {
+            type: 'line',
+            data: {
+                datasets: [
+                    // 历史数据
+                    {
+                        label: '历史数据',
+                        data: historyDates.map((date, i) => ({
+                            x: date,
+                            y: historyValues[i]
+                        })),
+                        borderColor: historyColor,
+                        backgroundColor: 'transparent',
+                        borderWidth: 2,
+                        pointRadius: 2,
+                        tension: 0.2
+                    },
+                    // 预测数据
+                    {
+                        label: '预测数据',
+                        data: predictionDates.map((date, i) => ({
+                            x: date,
+                            y: predictionValues[i]
+                        })),
+                        borderColor: predictionColor,
+                        backgroundColor: 'transparent',
+                        borderWidth: 8,
+                        borderDash: [10, 5],
+                        pointRadius: 6,
+                        pointStyle: 'rectRounded',
+                        pointBackgroundColor: predictionColor,
+                        pointBorderColor: '#FFFFFF',
+                        pointBorderWidth: 2,
+                        tension: 0.3,
+                        z: 10
+                    },
+                    // 预测区间
+                    {
+                        label: '95%置信区间',
+                        data: areaData,
+                        borderColor: 'transparent',
+                        backgroundColor: predictionColor,
+                        borderWidth: 0,
+                        pointRadius: 0,
+                        fill: true,
+                        tension: 0,
+                        order: 0
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: title,
+                        font: {
+                            size: 16
+                        }
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                label += formatNumber(context.parsed.y);
+                                return label;
+                            }
+                        }
+                    },
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    x: {
+                        type: 'category',
+                        title: {
+                            display: true,
+                            text: '日期'
+                        },
+                        ticks: {
+                            maxRotation: 45,
+                            minRotation: 45
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: '人数'
+                        },
+                        beginAtZero: false,
+                        ticks: {
+                            callback: function(value) {
+                                return formatNumber(value);
+                            }
+                        }
+                    }
+                },
+                elements: {
+                    line: {
+                        tension: 0.3
+                    }
+                }
+            }
+        });
+    }
+    
+    // 格式化数字（添加千位分隔符）
+    function formatNumber(num) {
+        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
+    
+    // 格式化百分比
+    function formatPercentage(delta, base) {
+        if (base === 0) return '∞%';
+        return ((delta / base) * 100).toFixed(2) + '%';
+    }
+    
+    // 初始化主题
+    function initializeTheme() {
+        // 主题切换按钮
+        const themeSwitch = document.getElementById('theme-switch');
+        if (!themeSwitch) return;
+        
+        // 检查是否已存储主题偏好
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark') {
+            document.body.classList.add('dark-theme');
+        }
+        
+        themeSwitch.addEventListener('click', function() {
+            // 切换深色主题类
+            document.body.classList.toggle('dark-theme');
+            
+            // 保存用户偏好
+            if (document.body.classList.contains('dark-theme')) {
+                localStorage.setItem('theme', 'dark');
+            } else {
+                localStorage.setItem('theme', 'light');
+            }
+        });
+    }
+    </script>
+</body>
+</html> 

@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>全球新冠疫情数据分析统计系统</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/leaflet.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container-fluid px-0">
+        <header class="header py-3">
+            <div class="container">
+                <h1 class="text-center mb-0">全球新冠疫情数据分析统计系统</h1>
+            </div>
+        </header>
+
+        <!-- 导航菜单 -->
+        <div class="container-fluid px-4">
+            <div class="row">
+                <div class="col-12">
+                    <nav class="main-nav">
+                        <ul class="nav-list">
+                            <li class="nav-item active">
+                                <a href="index.html" class="nav-link">首页</a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="countries.html" class="nav-link">所有国家</a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="china.html" class="nav-link">中国</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="prediction.html">疫情预测</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="monitor.html">数据流监控</a>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+
+        <!-- 全球统计数据控制面板 -->
+        <div class="container-fluid px-4 mt-3">
+            <div class="row stats-dashboard mb-4">
+                <div class="col-12 col-md-3 mb-3">
+                    <div class="dashboard-card confirmed">
+                        <div class="loading-container" id="confirmed-loading">
+                            <div class="loading-pulse"></div>
+                            <div class="loading-pulse"></div>
+                            <div class="loading-pulse"></div>
+                        </div>
+                        <div class="card-content-wrapper" style="display:none">
+                            <div class="card-icon">
+                                <i class="fas fa-user-check"></i>
+                            </div>
+                            <div class="card-content">
+                                <h6>累计确诊</h6>
+                                <div class="card-value" id="total-cases">加载中...</div>
+                                <div class="card-change">
+                                    <span>今日: </span>
+                                    <span id="today-cases">0</span>
+                                    <i class="fas fa-caret-up"></i>
+                                </div>
+                            </div>
+                            <div class="sparkline-container" id="cases-sparkline"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12 col-md-3 mb-3">
+                    <div class="dashboard-card deaths">
+                        <div class="loading-container" id="deaths-loading">
+                            <div class="loading-pulse"></div>
+                            <div class="loading-pulse"></div>
+                            <div class="loading-pulse"></div>
+                        </div>
+                        <div class="card-content-wrapper" style="display:none">
+                            <div class="card-icon">
+                                <i class="fas fa-heartbeat"></i>
+                            </div>
+                            <div class="card-content">
+                                <h6>累计死亡</h6>
+                                <div class="card-value" id="total-deaths">加载中...</div>
+                                <div class="card-change">
+                                    <span>今日: </span>
+                                    <span id="today-deaths">0</span>
+                                    <i class="fas fa-caret-up"></i>
+                                </div>
+                            </div>
+                            <div class="sparkline-container" id="deaths-sparkline"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12 col-md-3 mb-3">
+                    <div class="dashboard-card recovered">
+                        <div class="loading-container" id="recovered-loading">
+                            <div class="loading-pulse"></div>
+                            <div class="loading-pulse"></div>
+                            <div class="loading-pulse"></div>
+                        </div>
+                        <div class="card-content-wrapper" style="display:none">
+                            <div class="card-icon">
+                                <i class="fas fa-heart"></i>
+                            </div>
+                            <div class="card-content">
+                                <h6>累计治愈</h6>
+                                <div class="card-value" id="total-recovered">加载中...</div>
+                                <div class="card-change">
+                                    <span>今日: </span>
+                                    <span id="today-recovered">0</span>
+                                    <i class="fas fa-caret-up"></i>
+                                </div>
+                            </div>
+                            <div class="sparkline-container" id="recovered-sparkline"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12 col-md-3 mb-3">
+                    <div class="dashboard-card active">
+                        <div class="loading-container" id="active-loading">
+                            <div class="loading-pulse"></div>
+                            <div class="loading-pulse"></div>
+                            <div class="loading-pulse"></div>
+                        </div>
+                        <div class="card-content-wrapper" style="display:none">
+                            <div class="card-icon">
+                                <i class="fas fa-procedures"></i>
+                            </div>
+                            <div class="card-content">
+                                <h6>现存确诊</h6>
+                                <div class="card-value" id="active-cases">加载中...</div>
+                                <div class="card-change">
+                                    <span>危重: </span>
+                                    <span id="critical-cases">0</span>
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                </div>
+                            </div>
+                            <div class="sparkline-container" id="active-sparkline"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 内容区域 -->
+        <div class="container-fluid px-4">
+            <!-- 主要展示区域 -->
+            <div class="row mb-4">
+                <!-- 左侧地图区域 -->
+                <div class="col-md-9 mb-3">
+                    <div class="global-stats-card">
+                        <h5 class="section-title">全球累计死亡/确诊/治愈病例数:</h5>
+                        <div class="view-toggle">
+                            <button class="view-btn active" data-view="map"><i class="fas fa-map-marked-alt"></i></button>
+                            <button class="view-btn" data-view="table"><i class="fas fa-table"></i></button>
+                        </div>
+                        <div id="world-map" class="world-map view-content active" data-view="map"></div>
+                        
+                        <!-- 添加地图图例 -->
+                        <div class="map-legend" style="padding: 10px; margin-top: 10px; background: #f8f9fa; border-radius: 5px;">
+                            <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: center;">
+                                <div style="font-weight: bold; margin-right: 10px;">图例:</div>
+                                <div style="display: flex; align-items: center;">
+                                    <span style="display: inline-block; width: 20px; height: 20px; background: #FEF0D9; border: 1px solid #ccc; margin-right: 5px; border-radius: 3px;"></span>
+                                    <span>&lt; 10,000 例</span>
+                                </div>
+                                <div style="display: flex; align-items: center;">
+                                    <span style="display: inline-block; width: 20px; height: 20px; background: #FDCC8A; border: 1px solid #ccc; margin-right: 5px; border-radius: 3px;"></span>
+                                    <span>10,000 - 100,000 例</span>
+                                </div>
+                                <div style="display: flex; align-items: center;">
+                                    <span style="display: inline-block; width: 20px; height: 20px; background: #FC8D59; border: 1px solid #ccc; margin-right: 5px; border-radius: 3px;"></span>
+                                    <span>100,000 - 1,000,000 例</span>
+                                </div>
+                                <div style="display: flex; align-items: center;">
+                                    <span style="display: inline-block; width: 20px; height: 20px; background: #E34A33; border: 1px solid #ccc; margin-right: 5px; border-radius: 3px;"></span>
+                                    <span>1,000,000 - 10,000,000 例</span>
+                                </div>
+                                <div style="display: flex; align-items: center;">
+                                    <span style="display: inline-block; width: 20px; height: 20px; background: #B30000; border: 1px solid #ccc; margin-right: 5px; border-radius: 3px;"></span>
+                                    <span>&gt; 10,000,000 例</span>
+                                </div>
+                                <div style="display: flex; align-items: center; margin-left: 10px;">
+                                    <span style="display: inline-block; width: 12px; height: 12px; background: #FFF; border: 3px solid #4285F4; border-radius: 50%; margin-right: 5px;"></span>
+                                    <span>点大小表示死亡病例比例</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="world-table" class="view-content" data-view="table" style="display:none; height:500px; overflow-y:auto; padding:15px;">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th scope="col">大洲</th>
+                                            <th scope="col">确诊</th>
+                                            <th scope="col">死亡</th>
+                                            <th scope="col">治愈</th>
+                                            <th scope="col">现存</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="continents-data">
+                                        <tr>
+                                            <td colspan="5" class="text-center">
+                                                <div class="loading-container">
+                                                    <div class="loading-pulse"></div>
+                                                    <div class="loading-pulse"></div>
+                                                    <div class="loading-pulse"></div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- 右侧排行榜 -->
+                <div class="col-md-3 mb-3">
+                    <div class="today-stats-card">
+                        <h5 class="section-title">今日新增</h5>
+                        <div class="daily-stats">
+                            <div id="top-countries-chart" class="top-countries-chart">
+                                <h6>累计确诊人数Top20的国家</h6>
+                                <div id="top-chart-container"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-light py-3 mt-4">
+        <div class="container text-center">
+            <p>全球新冠疫情数据分析统计系统 © 2025</p>
+            <p class="text-muted">
+                数据更新时间: <span id="update-time">加载中...</span>
+                <span class="next-update">下次更新: <span id="update-countdown">5:00</span></span>
+            </p>
+        </div>
+    </footer>
+
+    <!-- 主题切换按钮 -->
+    <div class="theme-toggle">
+        <button id="theme-switch">
+            <i class="fas fa-moon"></i>
+            <i class="fas fa-sun"></i>
+        </button>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>

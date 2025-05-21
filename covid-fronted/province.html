@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>省份疫情详情 - 全球新冠疫情数据分析统计系统</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/leaflet.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        /* 防止图表容器堆叠 */
+        .chart-container {
+            position: relative;
+            height: 400px;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        
+        /* 修复表格布局 */
+        .table-responsive {
+            overflow-x: auto;
+            min-height: 300px;
+        }
+        
+        /* 确保卡片不会堆叠 */
+        .card {
+            margin-bottom: 2rem;
+            overflow: hidden;
+        }
+        
+        /* 改善负载动画样式 */
+        .loading-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid px-0">
+        <header class="header py-3">
+            <div class="container">
+                <h1 class="text-center mb-0">全球新冠疫情数据分析统计系统</h1>
+            </div>
+        </header>
+
+        <!-- 导航菜单 -->
+        <div class="container-fluid px-4">
+            <div class="row">
+                <div class="col-12">
+                    <nav class="main-nav">
+                        <ul class="nav-list">
+                            <li class="nav-item">
+                                <a href="index.html" class="nav-link">首页</a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="countries.html" class="nav-link">所有国家</a>
+                            </li>
+                            <li class="nav-item active">
+                                <a href="china.html" class="nav-link">中国</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="prediction.html">疫情预测</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="monitor.html">数据流监控</a>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+
+        <!-- 内容区域 -->
+        <div class="container-fluid px-4 mt-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h3 id="province-title" class="mb-0">省份疫情详情</h3>
+                <a href="china.html" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> 返回中国疫情页面
+                </a>
+            </div>
+            
+            <!-- 省份疫情汇总信息 -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="mb-4">当前省份累计汇总（截止 <span id="summary-date">--</span>）</h5>
+                    <div class="row text-center">
+                        <div class="col-md-3 mb-3">
+                            <div class="dashboard-card confirmed">
+                                <div class="loading-container" id="province-confirmed-loading">
+                                    <div class="loading-pulse"></div>
+                                    <div class="loading-pulse"></div>
+                                    <div class="loading-pulse"></div>
+                                </div>
+                                <div class="card-content-wrapper" style="display:none">
+                                    <div class="card-icon">
+                                        <i class="fas fa-user-check"></i>
+                                    </div>
+                                    <div class="card-content">
+                                        <h6>累计确诊</h6>
+                                        <div class="card-value" id="province-confirmed">--</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="dashboard-card active">
+                                <div class="loading-container" id="province-suspected-loading">
+                                    <div class="loading-pulse"></div>
+                                    <div class="loading-pulse"></div>
+                                    <div class="loading-pulse"></div>
+                                </div>
+                                <div class="card-content-wrapper" style="display:none">
+                                    <div class="card-icon">
+                                        <i class="fas fa-procedures"></i>
+                                    </div>
+                                    <div class="card-content">
+                                        <h6>疑似病例</h6>
+                                        <div class="card-value" id="province-suspected">--</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="dashboard-card recovered">
+                                <div class="loading-container" id="province-cured-loading">
+                                    <div class="loading-pulse"></div>
+                                    <div class="loading-pulse"></div>
+                                    <div class="loading-pulse"></div>
+                                </div>
+                                <div class="card-content-wrapper" style="display:none">
+                                    <div class="card-icon">
+                                        <i class="fas fa-heart"></i>
+                                    </div>
+                                    <div class="card-content">
+                                        <h6>累计治愈</h6>
+                                        <div class="card-value" id="province-cured">--</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="dashboard-card deaths">
+                                <div class="loading-container" id="province-dead-loading">
+                                    <div class="loading-pulse"></div>
+                                    <div class="loading-pulse"></div>
+                                    <div class="loading-pulse"></div>
+                                </div>
+                                <div class="card-content-wrapper" style="display:none">
+                                    <div class="card-icon">
+                                        <i class="fas fa-heartbeat"></i>
+                                    </div>
+                                    <div class="card-content">
+                                        <h6>累计死亡</h6>
+                                        <div class="card-value" id="province-dead">--</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 趋势图 -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">疫情趋势</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3 d-flex flex-wrap align-items-center gap-3">
+                        <div class="input-group" style="max-width: 400px;">
+                            <span class="input-group-text">起始日期</span>
+                            <input type="date" id="start-date" class="form-control">
+                            <span class="input-group-text">结束日期</span>
+                            <input type="date" id="end-date" class="form-control">
+                        </div>
+                        <button class="btn btn-primary" onclick="loadProvinceTrend()">查询</button>
+                        
+                        <div class="ms-auto d-flex align-items-center">
+                            <label class="me-2">统计指标：</label>
+                            <select id="stat-type" class="form-select" style="width:120px;" onchange="updateStatResult()">
+                                <option value="avg">平均值</option>
+                                <option value="max">最大值</option>
+                                <option value="min">最小值</option>
+                                <option value="median">中位数</option>
+                                <option value="skew">偏度</option>
+                            </select>
+                        </div>
+                        <div class="badge bg-primary" id="stat-result">--</div>
+                    </div>
+                    
+                    <div id="trend-chart-container" class="chart-container">
+                        <div class="loading-container">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">加载中...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 城市柱状图 -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">各城市疫情分布</h5>
+                </div>
+                <div class="card-body">
+                    <div id="city-chart-container" class="chart-container">
+                        <div class="loading-container">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">加载中...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 城市列表表格 -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">城市详情列表</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-striped mb-0">
+                            <thead>
+                                <tr>
+                                    <th>城市</th>
+                                    <th>确诊病例</th>
+                                    <th>疑似病例</th>
+                                    <th>治愈病例</th>
+                                    <th>死亡病例</th>
+                                    <th>现存确诊</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cities-data">
+                                <tr>
+                                    <td colspan="6" class="text-center py-3">
+                                        <div class="loading-container">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">加载中...</span>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <footer class="bg-light py-3 mt-4">
+        <div class="container text-center">
+            <p>全球新冠疫情数据分析统计系统 © 2025</p>
+            <p class="text-muted">
+                数据更新时间: <span id="update-time">加载中...</span>
+            </p>
+        </div>
+    </footer>
+
+    <!-- 主题切换按钮 -->
+    <div class="theme-toggle">
+        <button id="theme-switch">
+            <i class="fas fa-moon"></i>
+            <i class="fas fa-sun"></i>
+        </button>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"></script>
+    <script src="js/main.js"></script>
+
+    <script>
+        // 全局变量
+        let provinceName = '';
+        let trendChart = null;
+        let casesData = [];
+        
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', function() {
+            // 初始化主题切换
+            initThemeToggle();
+            
+            // 获取URL参数
+            const urlParams = new URLSearchParams(window.location.search);
+            provinceName = urlParams.get('province');
+            
+            if (!provinceName) {
+                alert('未指定省份，将返回中国疫情页面');
+                window.location.href = 'china.html';
+                return;
+            }
+            
+            // 设置页面标题
+            document.getElementById('province-title').textContent = `${provinceName} 疫情详情`;
+            document.title = `${provinceName}疫情详情 - 全球新冠疫情数据分析统计系统`;
+            
+            // 设置默认日期范围（最近30天）
+            const today = new Date();
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(today.getDate() - 30);
+            
+            document.getElementById('end-date').value = formatDateForInput(today);
+            document.getElementById('start-date').value = formatDateForInput(thirtyDaysAgo);
+            
+            // 加载省份汇总数据
+            loadProvinceSummary();
+            
+            // 加载城市数据
+            loadCitiesData();
+            
+            // 加载趋势数据
+            loadProvinceTrend();
+        });
+        
+        function initThemeToggle() {
+            const themeSwitch = document.getElementById('theme-switch');
+            const currentTheme = localStorage.getItem('theme');
+            
+            if (currentTheme === 'dark') {
+                document.body.classList.add('dark-theme');
+            }
+            
+            themeSwitch.addEventListener('click', function() {
+                document.body.classList.toggle('dark-theme');
+                const theme = document.body.classList.contains('dark-theme') ? 'dark' : 'light';
+                localStorage.setItem('theme', theme);
+            });
+        }
+        
+        async function loadProvinceSummary() {
+            try {
+                // 添加URL调试日志
+                const apiUrl = `http://49.232.28.106:5000/api/china/province/${encodeURIComponent(provinceName)}`;
+                console.log("省份数据API请求URL:", apiUrl);
+                
+                const response = await fetch(apiUrl);
+                
+                if (response.ok) {
+                    let data = await response.json();
+                    console.log("省份数据API返回:", data);
+                    
+                    // 检查是否有数据，如果返回是数组，取第一条记录
+                    if (Array.isArray(data) && data.length > 0) {
+                        data = data[0]; // 获取最新的一条记录
+                    }
+                    
+                    // 如果所有数值都是0，尝试获取该省份的累计数据
+                    if ((data.confirmed_count || 0) === 0 && 
+                        (data.suspected_count || 0) === 0 && 
+                        (data.cured_count || 0) === 0 && 
+                        (data.dead_count || 0) === 0) {
+                        
+                        console.log("当前省份数据为0，尝试获取累计数据");
+                        
+                        // 获取省份的累计数据API
+                        const summaryApiUrl = `http://49.232.28.106:5000/api/china/provinces/stats`;
+                        const summaryResponse = await fetch(summaryApiUrl);
+                        
+                        if (summaryResponse.ok) {
+                            const allProvincesData = await summaryResponse.json();
+                            console.log("获取所有省份累计数据:", allProvincesData);
+                            
+                            // 查找当前省份的数据
+                            const currentProvinceData = allProvincesData.find(
+                                province => province.province_name === provinceName
+                            );
+                            
+                            if (currentProvinceData) {
+                                console.log("找到当前省份的累计数据:", currentProvinceData);
+                                // 更新为累计数据
+                                data = currentProvinceData;
+                            }
+                        }
+                    }
+                    
+                    // 更新汇总数据
+                    document.getElementById('province-confirmed').textContent = numberWithCommas(data.confirmed_count || 0);
+                    document.getElementById('province-suspected').textContent = numberWithCommas(data.suspected_count || 0);
+                    document.getElementById('province-cured').textContent = numberWithCommas(data.cured_count || 0);
+                    document.getElementById('province-dead').textContent = numberWithCommas(data.dead_count || 0);
+                    
+                    // 更新日期
+                    const updateDate = data.stat_date ? new Date(data.stat_date) : new Date();
+                    document.getElementById('summary-date').textContent = formatDate(updateDate);
+                    document.getElementById('update-time').textContent = formatDate(updateDate);
+                    
+                    
+                } else {
+                    console.error('无法获取省份数据:', await response.text());
+                    
+                    // 获取省份累计数据API作为备用
+                    try {
+                        const summaryApiUrl = `http://49.232.28.106:5000/api/china/provinces/stats`;
+                        const summaryResponse = await fetch(summaryApiUrl);
+                        
+                        if (summaryResponse.ok) {
+                            const allProvincesData = await summaryResponse.json();
+                            console.log("API错误时获取所有省份累计数据:", allProvincesData);
+                            
+                            // 查找当前省份的数据
+                            const currentProvinceData = allProvincesData.find(
+                                province => province.province_name === provinceName
+                            );
+                            
+                            if (currentProvinceData) {
+                                console.log("找到当前省份的备用数据:", currentProvinceData);
+                                // 使用累计数据
+                                document.getElementById('province-confirmed').textContent = numberWithCommas(currentProvinceData.confirmed_count || 0);
+                                document.getElementById('province-suspected').textContent = numberWithCommas(currentProvinceData.suspected_count || 0);
+                                document.getElementById('province-cured').textContent = numberWithCommas(currentProvinceData.cured_count || 0);
+                                document.getElementById('province-dead').textContent = numberWithCommas(currentProvinceData.dead_count || 0);
+                                
+                                // 更新日期
+                                const updateDate = currentProvinceData.stat_date ? new Date(currentProvinceData.stat_date) : new Date();
+                                document.getElementById('summary-date').textContent = formatDate(updateDate);
+                                document.getElementById('update-time').textContent = formatDate(updateDate);
+                                
+                                
+                                
+                                // 不管成功与否，隐藏加载动画，显示内容
+                                document.querySelectorAll('.loading-container').forEach(loader => {
+                                    loader.style.display = 'none';
+                                });
+                                document.querySelectorAll('.card-content-wrapper').forEach(content => {
+                                    content.style.display = 'block';
+                                });
+                                
+                                return; // 找到数据后直接返回，不执行后面的代码
+                            }
+                        }
+                    } catch (summaryError) {
+                        console.error('获取备用累计数据失败:', summaryError);
+                    }
+                    
+                    // 如果备用API也失败，显示默认值
+                    document.getElementById('province-confirmed').textContent = '0';
+                    document.getElementById('province-suspected').textContent = '0';
+                    document.getElementById('province-cured').textContent = '0';
+                    document.getElementById('province-dead').textContent = '0';
+                    document.getElementById('summary-date').textContent = formatDate(new Date());
+                    document.getElementById('update-time').textContent = formatDate(new Date());
+                }
+                
+                // 不管成功与否，隐藏加载动画，显示内容
+                document.querySelectorAll('.loading-container').forEach(loader => {
+                    loader.style.display = 'none';
+                });
+                document.querySelectorAll('.card-content-wrapper').forEach(content => {
+                    content.style.display = 'block';
+                });
+            } catch (error) {
+                console.error('加载省份汇总数据失败:', error);
+                
+                // 出错时也尝试获取累计数据
+                try {
+                    const summaryApiUrl = `http://49.232.28.106:5000/api/china/provinces/stats`;
+                    const summaryResponse = await fetch(summaryApiUrl);
+                    
+                    if (summaryResponse.ok) {
+                        const allProvincesData = await summaryResponse.json();
+                        const currentProvinceData = allProvincesData.find(
+                            province => province.province_name === provinceName
+                        );
+                        
+                        if (currentProvinceData) {
+                            // 使用累计数据
+                            document.getElementById('province-confirmed').textContent = numberWithCommas(currentProvinceData.confirmed_count || 0);
+                            document.getElementById('province-suspected').textContent = numberWithCommas(currentProvinceData.suspected_count || 0);
+                            document.getElementById('province-cured').textContent = numberWithCommas(currentProvinceData.cured_count || 0);
+                            document.getElementById('province-dead').textContent = numberWithCommas(currentProvinceData.dead_count || 0);
+                            
+                            // 更新日期
+                            const updateDate = currentProvinceData.stat_date ? new Date(currentProvinceData.stat_date) : new Date();
+                            document.getElementById('summary-date').textContent = formatDate(updateDate);
+                            document.getElementById('update-time').textContent = formatDate(updateDate);
+                            
+                            // 不管成功与否，隐藏加载动画，显示内容
+                            document.querySelectorAll('.loading-container').forEach(loader => {
+                                loader.style.display = 'none';
+                            });
+                            document.querySelectorAll('.card-content-wrapper').forEach(content => {
+                                content.style.display = 'block';
+                            });
+                            
+                            return; // 找到数据后直接返回
+                        }
+                    }
+                } catch (summaryError) {
+                    console.error('在错误处理中获取累计数据失败:', summaryError);
+                }
+                
+                // 出现异常时，也要隐藏加载并显示默认值
+                document.querySelectorAll('.loading-container').forEach(loader => {
+                    loader.style.display = 'none';
+                });
+                document.querySelectorAll('.card-content-wrapper').forEach(content => {
+                    content.style.display = 'block';
+                });
+                
+                document.getElementById('province-confirmed').textContent = '0';
+                document.getElementById('province-suspected').textContent = '0';
+                document.getElementById('province-cured').textContent = '0';
+                document.getElementById('province-dead').textContent = '0';
+                document.getElementById('summary-date').textContent = formatDate(new Date());
+                document.getElementById('update-time').textContent = formatDate(new Date());
+            }
+        }
+        
+        async function loadCitiesData() {
+            try {
+                const response = await fetch(`http://49.232.28.106:5000/api/china/cities?province=${encodeURIComponent(provinceName)}`);
+                let cities = [];
+                
+                if (response.ok) {
+                    cities = await response.json();
+                } else {
+                    console.error('无法获取城市列表:', await response.text());
+                }
+                
+                if (cities && cities.length > 0) {
+                    // 加载城市数据表格
+                    await loadCitiesTable(cities);
+                    
+                    // 加载城市柱状图
+                    await loadCitiesChart(cities);
+                } else {
+                    document.getElementById('city-chart-container').innerHTML = 
+                        '<p class="text-center">暂无城市数据</p>';
+                    document.getElementById('cities-data').innerHTML = 
+                        '<tr><td colspan="6" class="text-center">暂无城市数据</td></tr>';
+                }
+            } catch (error) {
+                console.error('加载城市数据失败:', error);
+                document.getElementById('city-chart-container').innerHTML = 
+                    '<p class="text-center text-danger">加载城市数据失败</p>';
+                document.getElementById('cities-data').innerHTML = 
+                    '<tr><td colspan="6" class="text-center text-danger">加载城市数据失败</td></tr>';
+            }
+        }
+        
+        async function loadCitiesTable(cities) {
+            try {
+                // 获取所有城市的最新数据
+                const citiesData = [];
+                
+                for (const city of cities) {
+                    try {
+                        const response = await fetch(`http://49.232.28.106:5000/api/china/city?province=${encodeURIComponent(provinceName)}&city=${encodeURIComponent(city.city_name)}`);
+                    
+                    if (response.ok) {
+                            const data = await response.json();
+                        citiesData.push(data);
+                        } else {
+                            console.warn(`无法获取城市数据: ${city.city_name}`, await response.text());
+                            // 添加空数据，确保城市名称显示
+                            citiesData.push({
+                                city_name: city.city_name,
+                                confirmed_count: 0,
+                                suspected_count: 0,
+                                cured_count: 0,
+                                dead_count: 0
+                            });
+                        }
+                    } catch (err) {
+                        console.warn(`获取城市数据出错: ${city.city_name}`, err);
+                        // 添加空数据，确保城市名称显示
+                        citiesData.push({
+                            city_name: city.city_name,
+                            confirmed_count: 0,
+                            suspected_count: 0,
+                            cured_count: 0,
+                            dead_count: 0
+                        });
+                    }
+                }
+                
+                if (citiesData.length > 0) {
+                    // 按确诊病例数排序
+                    citiesData.sort((a, b) => b.confirmed_count - a.confirmed_count);
+                    
+                    // 更新表格
+                    const tableBody = document.getElementById('cities-data');
+                    tableBody.innerHTML = '';
+                    
+                    citiesData.forEach(city => {
+                        const row = document.createElement('tr');
+                        
+                        // 计算现存确诊
+                        const activeCases = (city.confirmed_count || 0) - (city.cured_count || 0) - (city.dead_count || 0);
+                        
+                        row.innerHTML = `
+                            <td>${city.city_name}</td>
+                            <td>${numberWithCommas(city.confirmed_count || 0)}</td>
+                            <td>${numberWithCommas(city.suspected_count || 0)}</td>
+                            <td>${numberWithCommas(city.cured_count || 0)}</td>
+                            <td>${numberWithCommas(city.dead_count || 0)}</td>
+                            <td>${numberWithCommas(activeCases)}</td>
+                        `;
+                        
+                        tableBody.appendChild(row);
+                    });
+                } else {
+                    document.getElementById('cities-data').innerHTML = 
+                        '<tr><td colspan="6" class="text-center">暂无城市数据</td></tr>';
+                }
+            } catch (error) {
+                console.error('加载城市表格失败:', error);
+                document.getElementById('cities-data').innerHTML = 
+                    '<tr><td colspan="6" class="text-center text-danger">加载城市表格失败</td></tr>';
+            }
+        }
+        
+        async function loadCitiesChart(cities) {
+            try {
+                // 获取所有城市的最新数据
+                const citiesData = [];
+                
+                for (const city of cities) {
+                    try {
+                        const response = await fetch(`http://49.232.28.106:5000/api/china/city?province=${encodeURIComponent(provinceName)}&city=${encodeURIComponent(city.city_name)}`);
+                    
+                    if (response.ok) {
+                            const data = await response.json();
+                        citiesData.push(data);
+                        } else {
+                            console.warn(`无法获取城市图表数据: ${city.city_name}`);
+                            // 添加最小数据以确保城市名称显示
+                            citiesData.push({
+                                city_name: city.city_name,
+                                confirmed_count: 0,
+                                cured_count: 0,
+                                dead_count: 0
+                            });
+                        }
+                    } catch (err) {
+                        console.warn(`获取城市图表数据出错: ${city.city_name}`, err);
+                        // 添加最小数据以确保城市名称显示
+                        citiesData.push({
+                            city_name: city.city_name,
+                            confirmed_count: 0,
+                            cured_count: 0,
+                            dead_count: 0
+                        });
+                    }
+                }
+                
+                if (citiesData.length > 0) {
+                    // 按确诊病例数排序并截取前10个
+                    const top10Cities = [...citiesData]
+                        .sort((a, b) => (b.confirmed_count || 0) - (a.confirmed_count || 0))
+                        .slice(0, 10);
+                    
+                    // 显示加载中
+                    const container = document.getElementById('city-chart-container');
+                    container.innerHTML = `
+                        <div class="d-flex justify-content-center align-items-center" style="height: 100%">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">加载中...</span>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // 延迟绘制，确保DOM已更新
+                    setTimeout(() => {
+                        try {
+                            // 绘制柱状图
+                            container.innerHTML = '<canvas id="cityBarChart"></canvas>';
+                    
+                    new Chart(document.getElementById('cityBarChart').getContext('2d'), {
+                        type: 'bar',
+                        data: {
+                            labels: top10Cities.map(city => city.city_name),
+                            datasets: [
+                                {
+                                    label: '确诊',
+                                            data: top10Cities.map(city => city.confirmed_count || 0),
+                                    backgroundColor: 'rgba(255, 99, 132, 0.7)',
+                                            stack: 'Stack 0',
+                                            maxBarThickness: 50
+                                },
+                                {
+                                    label: '治愈',
+                                            data: top10Cities.map(city => city.cured_count || 0),
+                                    backgroundColor: 'rgba(75, 192, 192, 0.7)',
+                                            stack: 'Stack 0',
+                                            maxBarThickness: 50
+                                },
+                                {
+                                    label: '死亡',
+                                            data: top10Cities.map(city => city.dead_count || 0),
+                                    backgroundColor: 'rgba(54, 162, 235, 0.7)',
+                                            stack: 'Stack 0',
+                                            maxBarThickness: 50
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                                    maintainAspectRatio: false,
+                            plugins: {
+                                legend: { position: 'top' },
+                                title: {
+                                    display: true,
+                                            text: `${provinceName}主要城市疫情数据`
+                                }
+                            },
+                            scales: {
+                                        x: { 
+                                            stacked: true,
+                                            ticks: {
+                                                autoSkip: false,
+                                                maxRotation: 45,
+                                                minRotation: 45
+                                            }
+                                        },
+                                y: { stacked: true }
+                                    },
+                                    layout: {
+                                        padding: 20
+                            }
+                        }
+                    });
+                        } catch (chartError) {
+                            console.error('创建城市图表失败:', chartError);
+                            container.innerHTML = '<div class="alert alert-danger">创建图表失败: ' + chartError.message + '</div>';
+                        }
+                    }, 100);
+                } else {
+                    document.getElementById('city-chart-container').innerHTML = 
+                        '<p class="text-center">暂无足够的城市数据生成图表</p>';
+                }
+            } catch (error) {
+                console.error('加载城市图表失败:', error);
+                document.getElementById('city-chart-container').innerHTML = 
+                    '<p class="text-center text-danger">加载城市图表失败</p>';
+            }
+        }
+        
+        async function loadProvinceTrend() {
+            try {
+                const startDate = document.getElementById('start-date').value;
+                const endDate = document.getElementById('end-date').value;
+                
+                if (!startDate || !endDate) {
+                    alert('请选择起止日期');
+                    return;
+                }
+                
+                // 显示加载中
+                document.getElementById('trend-chart-container').innerHTML = `
+                    <div class="d-flex justify-content-center align-items-center" style="height: 100%">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">加载中...</span>
+                        </div>
+                    </div>
+                `;
+                
+                // 获取省份的全部历史数据
+                let url = `http://49.232.28.106:5000/api/china/province/${encodeURIComponent(provinceName)}`;
+                console.log("趋势数据API请求URL:", url);
+                
+                let response = await fetch(url);
+                let data = await response.json();
+                console.log("趋势数据API返回:", data);
+                
+                // 如果返回的是单个对象而非数组，将其转换为数组
+                if (data && !Array.isArray(data)) {
+                    data = [data];
+                }
+                
+                if (!response.ok || !data || data.length === 0) {
+                    document.getElementById('trend-chart-container').innerHTML = 
+                        '<div class="alert alert-warning">无法获取趋势数据或数据为空</div>';
+                        return;
+                    }
+                    
+                // 处理数据并绘制图表
+                const dates = data.map(item => new Date(item.stat_date).toISOString().split('T')[0]);
+                const confirmed = data.map(item => item.confirmed_count || 0);
+                const suspected = data.map(item => item.suspected_count || 0);
+                const cured = data.map(item => item.cured_count || 0);
+                const dead = data.map(item => item.dead_count || 0);
+                    
+                    // 保存确诊数据供统计分析
+                    casesData = confirmed;
+                    
+                // 清除容器并准备绘图
+                document.getElementById('trend-chart-container').innerHTML = '<canvas id="trendChart"></canvas>';
+                
+                // 确保DOM已更新后再创建图表
+                setTimeout(() => {
+                    try {
+                        const ctx = document.getElementById('trendChart').getContext('2d');
+                        
+                        // 如果已经存在图表实例，先销毁它
+                    if (trendChart) {
+                        trendChart.destroy();
+                    }
+                    
+                        // 如果只有一个数据点，绘制柱状图
+                        if (dates.length === 1) {
+                            trendChart = new Chart(ctx, {
+                                type: 'bar',
+                                data: {
+                                    labels: dates,
+                                    datasets: [
+                                        {
+                                            label: '确诊',
+                                            data: confirmed,
+                                            backgroundColor: 'rgba(255, 99, 132, 0.7)',
+                                            maxBarThickness: 50,
+                                        },
+                                        {
+                                            label: '疑似',
+                                            data: suspected,
+                                            backgroundColor: 'rgba(255, 159, 64, 0.7)',
+                                            maxBarThickness: 50,
+                                        },
+                                        {
+                                            label: '治愈',
+                                            data: cured,
+                                            backgroundColor: 'rgba(75, 192, 192, 0.7)',
+                                            maxBarThickness: 50,
+                                        },
+                                        {
+                                            label: '死亡',
+                                            data: dead,
+                                            backgroundColor: 'rgba(54, 162, 235, 0.7)',
+                                            maxBarThickness: 50,
+                                        }
+                                    ]
+                                },
+                                options: {
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    plugins: {
+                                        legend: { position: 'top' },
+                                        title: {
+                                            display: true,
+                                            text: `${provinceName}疫情数据`
+                                        }
+                                    },
+                                    scales: {
+                                        y: {
+                                            beginAtZero: true
+                                        }
+                                    },
+                                    layout: {
+                                        padding: 20
+                                    }
+                                }
+                            });
+                        } else {
+                            // 有多个数据点时绘制折线图
+                            trendChart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: dates,
+                            datasets: [
+                                {
+                                    label: '确诊',
+                                    data: confirmed,
+                                            borderColor: 'rgba(255, 99, 132, 1)',
+                                            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                                    fill: true,
+                                            tension: 0.4
+                                },
+                                {
+                                    label: '疑似',
+                                    data: suspected,
+                                            borderColor: 'rgba(255, 159, 64, 1)',
+                                            backgroundColor: 'rgba(255, 159, 64, 0.2)',
+                                    fill: true,
+                                            tension: 0.4
+                                },
+                                {
+                                    label: '治愈',
+                                    data: cured,
+                                            borderColor: 'rgba(75, 192, 192, 1)',
+                                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                    fill: true,
+                                            tension: 0.4
+                                },
+                                {
+                                    label: '死亡',
+                                    data: dead,
+                                            borderColor: 'rgba(54, 162, 235, 1)',
+                                            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                                    fill: true,
+                                            tension: 0.4
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                                    maintainAspectRatio: false,
+                            plugins: {
+                                legend: { position: 'top' },
+                                title: {
+                                    display: true,
+                                            text: `${provinceName}疫情趋势`
+                                }
+                            },
+                            scales: {
+                                        y: {
+                                            beginAtZero: true
+                                        }
+                                    },
+                                    layout: {
+                                        padding: 20
+                                    }
+                                }
+                            });
+                        }
+                    
+                    // 更新统计结果
+                    updateStatResult();
+                    } catch (chartError) {
+                        console.error('创建趋势图表失败:', chartError);
+                    document.getElementById('trend-chart-container').innerHTML = 
+                            '<div class="alert alert-danger">创建图表失败: ' + chartError.message + '</div>';
+                }
+                }, 100); // 延迟100ms确保DOM更新
+            } catch (error) {
+                console.error('加载趋势数据失败:', error);
+                document.getElementById('trend-chart-container').innerHTML = 
+                    '<p class="text-center text-danger">加载趋势数据失败: ' + error.message + '</p>';
+            }
+        }
+        
+        function updateStatResult() {
+            if (!casesData || casesData.length === 0) {
+                document.getElementById('stat-result').textContent = '无数据';
+                return;
+            }
+            
+            const statType = document.getElementById('stat-type').value;
+            const result = computeStat(casesData, statType);
+            
+            document.getElementById('stat-result').textContent = `确诊-${getStatName(statType)}: ${result}`;
+        }
+        
+        // 统计函数
+        function computeStat(arr, type) {
+            if (!arr || arr.length === 0) return '--';
+            
+            const sorted = [...arr].sort((a, b) => a - b);
+            const n = sorted.length;
+            const sum = sorted.reduce((a, b) => a + b, 0);
+            const mean = sum / n;
+            
+            switch (type) {
+                case 'avg':
+                    return mean.toFixed(2);
+                case 'max':
+                    return Math.max(...arr);
+                case 'min':
+                    return Math.min(...arr);
+                case 'median':
+                    return (n % 2 === 0)
+                        ? ((sorted[n / 2 - 1] + sorted[n / 2]) / 2).toFixed(2)
+                        : sorted[Math.floor(n / 2)];
+                case 'skew':
+                    const std = Math.sqrt(sorted.reduce((sum, x) => sum + (x - mean) ** 2, 0) / n);
+                    if (std === 0) return '0';
+                    const skew = sorted.reduce((sum, x) => sum + ((x - mean) ** 3), 0) / (n * (std ** 3));
+                    return skew.toFixed(3);
+                default:
+                    return '--';
+            }
+        }
+        
+        function getStatName(type) {
+            switch (type) {
+                case 'avg': return '平均值';
+                case 'max': return '最大值';
+                case 'min': return '最小值';
+                case 'median': return '中位数';
+                case 'skew': return '偏度';
+                default: return type;
+            }
+        }
+        
+        // 辅助函数
+        function numberWithCommas(x) {
+            return x ? x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") : "0";
+        }
+        
+        function formatDate(date) {
+            return date.toLocaleString('zh-CN', { 
+                year: 'numeric', 
+                month: '2-digit', 
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+        
+        function formatDateForInput(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+    </script>
+</body>
+</html> 
