@@ -1,0 +1,12 @@
+css/style.css文件下主要存放样式：
+（1）全部页面都涉及到的style：
+    整体布局body
+    头部header
+    导航菜单nav
+    页脚footer
+
+（2）剩余样式：
+    目前存放的涉及页面:index.html+china共同样式
+    地图+排行榜
+
+（3）除了上述提及部分，剩余html样式都在各自的html页面内
