@@ -91,7 +91,7 @@
 
    ```
    git clone <仓库地址>
-   cd SCourseDesign
+   cd COVID-19
    ```
 
 2. 安装 Python 依赖
